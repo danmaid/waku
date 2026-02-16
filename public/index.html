@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Edge Dock Nav + Auto-hide (per-edge, compact, dark)</title>
+  <style>
+    :root{
+      /* --- Dark theme (固定) --- */
+      --bg: #070b12;
+      --panel: rgba(255,255,255,.05);
+      --panel2: rgba(255,255,255,.08);
+      --line: rgba(255,255,255,.12);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.62);
+      --accent: #8be9fd;
+      --shadow: 0 10px 26px rgba(0,0,0,.38);
+
+      /* --- Compact sizes（メイン領域を最大化） --- */
+      --header-full: 44px;
+      --footer-full: 40px;
+      --sidebar-full: 60px;
+
+      /* auto-hide時の“逃げ”量（さらに薄く） */
+      --header-peek: 4px;
+      --footer-peek: 4px;
+      --sidebar-peek: 6px;
+
+      /* per-edge sizing (左右別) */
+      --header-h: var(--header-full);
+      --footer-h: var(--footer-full);
+      --sidebar-left-w: var(--sidebar-full);
+      --sidebar-right-w: var(--sidebar-full);
+
+      --radius: 0px;
+      --icon-size: 20px;
+      --circle: 40px;
+
+      --hotzone: 8px;     /* 端ホバー検知 */
+      --anim: 160ms;
+    }
+
+    *{ box-sizing: border-box; }
+    html, body{ height: 100%; }
+
+    body{
+      margin: 0;
+      background:
+        radial-gradient(900px 600px at 15% 10%, rgba(139,233,253,.14), transparent 55%),
+        radial-gradient(900px 700px at 90% 0%, rgba(189,147,249,.12), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+      overflow: hidden;
+    }
+
+    /* ===== Auto-hide sizing control (per-edge) ===== */
+    body.autoHide{
+      --header-h: var(--header-peek);
+      --footer-h: var(--footer-peek);
+      --sidebar-left-w: var(--sidebar-peek);
+      --sidebar-right-w: var(--sidebar-peek);
+    }
+    body.autoHide.showTop{ --header-h: var(--header-full); }
+    body.autoHide.showBottom{ --footer-h: var(--footer-full); }
+    body.autoHide.showLeft{ --sidebar-left-w: var(--sidebar-full); }
+    body.autoHide.showRight{ --sidebar-right-w: var(--sidebar-full); }
+
+    /* ===== Layout: edge-to-edge ===== */
+    .app{
+      height: 100vh;
+      width: 100vw;
+      display: grid;
+      grid-template-columns: var(--sidebar-left-w) 1fr var(--sidebar-right-w);
+      grid-template-rows: var(--header-h) 1fr var(--footer-h);
+      gap: 0;
+      padding: 0;
+      transition:
+        grid-template-rows var(--anim) ease,
+        grid-template-columns var(--anim) ease;
+    }
+
+    header, footer, aside{
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      overflow: hidden;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* outer borders removed to avoid double lines */
+    header{ border-top: 0; border-left: 0; border-right: 0; }
+    footer{ border-bottom: 0; border-left: 0; border-right: 0; }
+    aside.left{ border-left: 0; border-top: 0; border-bottom: 0; }
+    aside.right{ border-right: 0; border-top: 0; border-bottom: 0; }
+
+    header{
+      grid-column: 1 / 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    footer{
+      grid-column: 1 / 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    aside.left{ grid-row: 2; grid-column: 1; }
+    aside.right{ grid-row: 2; grid-column: 3; }
+
+    main{
+      grid-row: 2;
+      grid-column: 2;
+      min-height: 0;
+      overflow: hidden;
+      background: rgba(255,255,255,.03);
+      position: relative;
+      z-index: 1;
+    }
+
+    iframe{ width: 100%; height: 100%; border: 0; background: #0b0f17; }
+
+    /* ===== Nav buttons ===== */
+    .rownav{ display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .rownav .group{ display: flex; align-items: center; gap: 6px; min-width: 0; }
+
+    .navbtn{
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 8px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease;
+      outline: none;
+      min-height: 30px;
+    }
+    .navbtn:hover{ background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.10); }
+    .navbtn:active{ transform: translateY(1px); }
+    .navbtn[aria-current="page"]{ background: rgba(139,233,253,.14); border-color: rgba(139,233,253,.28); }
+    .navbtn .label{ font-size: 13px; font-weight: 600; letter-spacing: .2px; overflow: hidden; text-overflow: ellipsis; max-width: 28vw; }
+    .navbtn .ic{ width: var(--icon-size); height: var(--icon-size); display: inline-block; }
+
+    /* Side bars */
+    .side{ display:flex; flex-direction:column; align-items:center; padding:8px 4px; gap:8px; height:100%; overflow:auto; }
+    .circlebtn{
+      width: var(--circle); height: var(--circle); border-radius: 999px;
+      border: 1px solid transparent;
+      background: rgba(255,255,255,.07);
+      color: var(--text);
+      display: grid; place-items: center;
+      cursor: pointer; outline: none;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+    .circlebtn:hover{ background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.12); }
+    .circlebtn:active{ transform: translateY(1px); }
+    .circlebtn[aria-current="page"]{ background: rgba(139,233,253,.14); border-color: rgba(139,233,253,.28); box-shadow: 0 0 0 4px rgba(139,233,253,.10); }
+    .circlebtn .ic{ width: 20px; height: 20px; }
+
+/* === Badge for right sidebar icon (e.g., MDN) === */
+.circlebtn { position: relative; }
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.2px;
+
+  color: rgba(255,255,255,.96);
+  background: rgba(255, 70, 90, .95);
+  border: 1px solid rgba(255,255,255,.22);
+  box-shadow: 0 6px 14px rgba(0,0,0,.35);
+
+  transform: translate(15%, -15%);
+}
+
+.badge.is-hidden { display: none; }
+.badge.is-compact { font-size: 10px; min-width: 18px; }
+
+
+    .spacer{ flex: 1; }
+    .hint{ font-size: 12px; color: var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:45vw; }
+
+    /* ===== Auto-hide visual hiding ===== */
+    body.autoHide:not(.showTop) header{ padding: 0; }
+    body.autoHide:not(.showBottom) footer{ padding: 0; }
+
+    body.autoHide:not(.showTop) header .rownav,
+    body.autoHide:not(.showTop) header .hint{ opacity: 0; pointer-events: none; transition: opacity var(--anim) ease; }
+    body.autoHide.showTop header .rownav,
+    body.autoHide.showTop header .hint{ opacity: 1; pointer-events: auto; }
+
+    body.autoHide:not(.showBottom) footer .rownav,
+    body.autoHide:not(.showBottom) footer #openNew{ opacity: 0; pointer-events: none; transition: opacity var(--anim) ease; }
+    body.autoHide.showBottom footer .rownav,
+    body.autoHide.showBottom footer #openNew{ opacity: 1; pointer-events: auto; }
+
+    body.autoHide:not(.showLeft) aside.left .side{ opacity: 0; pointer-events: none; transition: opacity var(--anim) ease; }
+    body.autoHide.showLeft aside.left .side{ opacity: 1; pointer-events: auto; }
+
+    body.autoHide:not(.showRight) aside.right .side{ opacity: 0; pointer-events: none; transition: opacity var(--anim) ease; }
+    body.autoHide.showRight aside.right .side{ opacity: 1; pointer-events: auto; }
+
+    /* ===== Pin toggle button (header right) ===== */
+    #pinToggle{
+      width: 36px; height: 36px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      box-shadow: var(--shadow);
+      display: grid; place-items: center;
+      cursor: pointer; user-select: none;
+      position: relative; z-index: 5; margin-left: 6px;
+    }
+    #pinToggle:hover{ border-color: rgba(255,255,255,.22); }
+    #pinToggle:active{ transform: translateY(1px); }
+    #pinToggle svg{ width: 18px; height: 18px; }
+
+    .pinBadge{
+      position: absolute; right: -6px; bottom: -6px;
+      width: 14px; height: 14px; border-radius: 999px;
+      background: rgba(139,233,253,.35);
+      border: 1px solid rgba(139,233,253,.55);
+      display: none;
+    }
+    body:not(.autoHide) .pinBadge{ display:block; }
+
+    /* autoHideで上が閉じていても、ピンは常に触れるように右上にフロート */
+    body.autoHide:not(.showTop) header #pinToggle{ position: fixed; top: 8px; right: 8px; z-index: 1000; }
+    body.autoHide.showTop header #pinToggle{ position: relative; top: auto; right: auto; }
+
+    /* Scrollbar */
+    .side::-webkit-scrollbar{ width: 10px; }
+    .side::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.16); border-radius: 10px; border: 2px solid transparent; background-clip: content-box; }
+
+    /* ===== Hotzones ===== */
+    .hotzone{ position: fixed; z-index: 999; background: transparent; pointer-events: auto; }
+    .hotzone.top{ left:0; right:0; top:0; height: var(--hotzone); }
+    .hotzone.bottom{ left:0; right:0; bottom:0; height: var(--hotzone); }
+    .hotzone.left{ top:0; bottom:0; left:0; width: var(--hotzone); }
+    .hotzone.right{ top:0; bottom:0; right:0; width: var(--hotzone); }
+
+    /* responsive */
+    @media (max-width: 860px){
+      :root{ --sidebar-full: 54px; --circle: 38px; }
+      .navbtn .label{ display:none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Hotzones: 画面端に寄せると、その辺だけが出ます（autoHide時） -->
+  <div class="hotzone top" data-zone="Top" aria-hidden="true"></div>
+  <div class="hotzone bottom" data-zone="Bottom" aria-hidden="true"></div>
+  <div class="hotzone left" data-zone="Left" aria-hidden="true"></div>
+  <div class="hotzone right" data-zone="Right" aria-hidden="true"></div>
+
+  <div class="app" id="app">
+    <header id="header">
+      <div class="rownav"><div class="group" id="topNav"></div></div>
+      <div class="spacer"></div>
+      <div class="hint" id="status">Ready</div>
+
+      <!-- auto-hide ON/OFF : ヘッダー右端 -->
+      <button id="pinToggle" type="button" title="ピン固定 / 自動的に逃げる（auto-hide）切替">
+        <span class="pinBadge" aria-hidden="true"></span>
+        <span id="pinIcon" aria-hidden="true"></span>
+      </button>
+    </header>
+
+    <aside class="left" id="leftBar"><div class="side" id="leftNav" aria-label="左ツールバー"></div></aside>
+
+    <main>
+      <iframe id="view" title="メインコンテンツ" src="about:blank"></iframe>
+    </main>
+
+    <aside class="right" id="rightBar"><div class="side" id="rightNav" aria-label="右ツールバー"></div></aside>
+
+    <footer id="footer">
+      <div class="rownav"><div class="group" id="bottomNav"></div></div>
+      <div class="spacer"></div>
+      <button class="navbtn" id="openNew" title="現在のURLを新しいタブで開く">
+        <span class="ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 3h7v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M21 3 10 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <span class="label">新しいタブ</span>
+      </button>
+    </footer>
+  </div>
+
+  <script>
+    function svg(name){
+      const icons = {
+        home: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+        docs: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h7l3 3v15a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8"/><path d="M14 3v4a1 1 0 0 0 1 1h4" stroke="currentColor" stroke-width="1.8"/></svg>`,
+        search: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+        settings: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a7.9 7.9 0 0 0 .1-1l2-1.2-2-3.4-2.3.6a8.5 8.5 0 0 0-1.7-1l-.3-2.4H10l-.3 2.4a8.5 8.5 0 0 0-1.7 1l-2.3-.6-2 3.4L5.7 14a7.9 7.9 0 0 0 .1 1l-2 1.2 2 3.4 2.3-.6c.5.4 1.1.7 1.7 1l.3 2.4h4.8l.3-2.4c.6-.3 1.2-.6 1.7-1l2.3.6 2-3.4-2-1.2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
+        info: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="1.8"/><path d="M12 10.5V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 7.5h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>`,
+        star: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l2.9 6 6.6.9-4.8 4.6 1.2 6.6L12 18.7 6.1 21.1l1.2-6.6L2.5 9.9 9.1 9 12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`,
+        mail: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8"/><path d="m22 8-10 7L2 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+        back: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 18 9 12l6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        forward: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        pin: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 3 21 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 11 13 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3h6l1 5-2 2v6l-2 2-1-1" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
+        unpin: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3 21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3h6l1 5-2 2v6l-2 2-1-1" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`
+      };
+      return icons[name] || icons.info;
+    }
+
+    // --- Navigation definitions (edit here) ---
+    const NAV = {
+      top: [
+        { id:'home', label:'ホーム', icon:'home', url:'data:text/html;charset=utf-8,'+encodeURIComponent(`<body style="margin:0;background:#0b0f17;color:#e6edf3;font-family:system-ui;"><div style="padding:18px;"><h1>Home</h1><p>コンパクト＆ダークテーマにしました。auto-hide時も、ホバーした辺だけ展開します。</p></div></body>`) },
+        { id:'docs', label:'ドキュメント', icon:'docs', url:'https://example.com' },
+        { id:'search', label:'検索', icon:'search', url:'https://www.bing.com' },
+      ],
+      bottom: [
+        { id:'back', label:'戻る', icon:'back', action:'back' },
+        { id:'forward', label:'進む', icon:'forward', action:'forward' },
+        { id:'info', label:'ヘルプ', icon:'info', url:'data:text/html;charset=utf-8,'+encodeURIComponent(`<body style="margin:0;background:#0b0f17;color:#e6edf3;font-family:system-ui;"><div style="padding:18px;"><h2>Help</h2><p>auto-hide中は、画面端にマウスを寄せた「その辺」だけが出ます。</p></div></body>`) },
+      ],
+      left: [
+        { id:'fav', title:'SD-WAN', icon:'star', url:'https://manager.sdwan.danmaid.com' },
+        { id:'mail', title:'Catalyst Center', icon:'mail', url:'https://cml29090.danmaid.com' },
+        { id:'zabbix', title:'Zabbix', icon:'docs', url:'/zabbix/' },
+        { id:'ssh', title:'SSH', icon:'forward', url:'/v1/ssh/' },
+        { id:'set', title:'deploy', icon:'settings', url:'/v1/deploy/' },
+        { id:'labo', title:'ラボ', icon:'info', url:'https://cml.danmaid.com/lab/2b13e418-8c52-470f-b31f-b29261e8e094' },
+      ],
+      right: [
+        { id:'orchestrator', title:'オーケストレータ', icon:'info', url:'/v1/orchestrator/' },
+        { id:'mdn', title:'MDN', icon:'docs', url:'/v1/webhooks/sdwan/' },
+        { id:'info2', title:'情報', icon:'info', url:'data:text/html;charset=utf-8,'+encodeURIComponent(`<body style="margin:0;background:#0b0f17;color:#e6edf3;font-family:system-ui;"><div style="padding:18px;"><h2>Info</h2><p>右側もホバーしたときだけ展開します。</p></div></body>`) },
+      ]
+    };
+
+    const view = document.getElementById('view');
+    const status = document.getElementById('status');
+    const openNew = document.getElementById('openNew');
+    const pinToggle = document.getElementById('pinToggle');
+    const pinIcon = document.getElementById('pinIcon');
+
+    // ----- Persisted setting -----
+    const KEY = 'edgeDock.autoHide';
+    function setAutoHide(on){
+      document.body.classList.toggle('autoHide', on);
+      localStorage.setItem(KEY, on ? '1' : '0');
+      pinIcon.innerHTML = on ? svg('unpin') : svg('pin');
+      pinToggle.title = on ? 'auto-hide：ON（端に寄せると出ます） / クリックでピン固定' : 'ピン固定：ON（常時表示） / クリックでauto-hide';
+    }
+    setAutoHide(localStorage.getItem(KEY) === '1');
+
+    function setStatus(text){ status.textContent = text; }
+    function setActive(id){
+      document.querySelectorAll('[data-nav-id]').forEach(el => {
+        el.removeAttribute('aria-current');
+        if (el.dataset.navId === id) el.setAttribute('aria-current','page');
+      });
+    }
+
+    function navigate(item){
+ // ★ MDNを開いたら未読リセット（任意）
+ if (item.id === 'mdn') {
+   mdnCount = 0;
+   updateMdnBadge();
+ }
+      if (item.action === 'back'){
+        try{ view.contentWindow.history.back(); }catch(e){}
+        setStatus('Back');
+        return;
+      }
+      if (item.action === 'forward'){
+        try{ view.contentWindow.history.forward(); }catch(e){}
+        setStatus('Forward');
+        return;
+      }
+      if (item.url){
+        view.src = item.url;
+        setActive(item.id);
+        setStatus(item.label || item.title || item.url);
+      }
+    }
+
+    function makeTopBottomButton(item){
+      const btn = document.createElement('button');
+      btn.className = 'navbtn';
+      btn.type = 'button';
+      btn.dataset.navId = item.id;
+      btn.title = item.label;
+      btn.innerHTML = `<span class="ic" aria-hidden="true">${svg(item.icon)}</span><span class="label"></span>`;
+      btn.querySelector('.label').textContent = item.label;
+      btn.addEventListener('click', () => navigate(item));
+      return btn;
+    }
+
+    function makeCircleButton(item){
+ const btn = document.createElement('button');
+ btn.className = 'circlebtn';
+ btn.type = 'button';
+ btn.dataset.navId = item.id;
+ btn.title = item.title;
+ btn.innerHTML = `<span class="ic" aria-hidden="true">${svg(item.icon)}</span>`;
+
+ // ★ MDN用バッジを追加
+ if (item.id === 'mdn') {
+   const badge = document.createElement('span');
+   badge.className = 'badge is-hidden';
+   badge.id = 'mdnBadge';
+   badge.textContent = '0';
+   badge.setAttribute('aria-label', '未処理イベント数');
+   btn.appendChild(badge);
+ }
+
+ btn.addEventListener('click', () => navigate(item));
+ return btn;
+ }
+
+ function render(){
+      const top = document.getElementById('topNav');
+      const bottom = document.getElementById('bottomNav');
+      const left = document.getElementById('leftNav');
+      const right = document.getElementById('rightNav');
+
+      NAV.top.forEach(i => top.appendChild(makeTopBottomButton(i)));
+      NAV.bottom.forEach(i => bottom.appendChild(makeTopBottomButton(i)));
+      NAV.left.forEach(i => left.appendChild(makeCircleButton(i)));
+      NAV.right.forEach(i => right.appendChild(makeCircleButton(i)));
+
+      navigate(NAV.top[0]);
+    }
+
+    openNew.addEventListener('click', () => {
+      const url = view.src;
+      if (!url || url === 'about:blank') return;
+      window.open(url, '_blank', 'noopener');
+    });
+
+    pinToggle.addEventListener('click', () => {
+      const on = document.body.classList.contains('autoHide');
+      setAutoHide(!on);
+      if (!document.body.classList.contains('autoHide')){
+        document.body.classList.remove('showTop','showBottom','showLeft','showRight');
+      }
+    });
+
+    // ----- Auto-hide reveal logic (per-edge, independent) -----
+    const hoverState = {Top:false, Bottom:false, Left:false, Right:false};
+    const hideTimers = {Top:null, Bottom:null, Left:null, Right:null};
+
+    function show(zone){
+      if (!document.body.classList.contains('autoHide')) return;
+      document.body.classList.add('show'+zone);
+      hoverState[zone] = true;
+      if (hideTimers[zone]){ clearTimeout(hideTimers[zone]); hideTimers[zone]=null; }
+    }
+
+    function scheduleHide(zone){
+      if (!document.body.classList.contains('autoHide')) return;
+      hoverState[zone] = false;
+      if (hideTimers[zone]) clearTimeout(hideTimers[zone]);
+      hideTimers[zone] = setTimeout(() => {
+        if (!hoverState[zone]) document.body.classList.remove('show'+zone);
+      }, 240);
+    }
+
+    // Hotzones
+    document.querySelectorAll('.hotzone').forEach(z => {
+      const zone = z.dataset.zone;
+      z.addEventListener('mouseenter', () => show(zone));
+      z.addEventListener('mouseleave', () => scheduleHide(zone));
+    });
+
+    // Panels themselves
+    const panelMap = {
+      Top: document.getElementById('header'),
+      Bottom: document.getElementById('footer'),
+      Left: document.getElementById('leftBar'),
+      Right: document.getElementById('rightBar'),
+    };
+    Object.entries(panelMap).forEach(([zone, el]) => {
+      el.addEventListener('mouseenter', () => show(zone));
+      el.addEventListener('mouseleave', () => scheduleHide(zone));
+    });
+
+    // Keyboard shortcuts: Alt+← / Alt+→
+    window.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key === 'ArrowLeft') navigate({action:'back'});
+      if (e.altKey && e.key === 'ArrowRight') navigate({action:'forward'});
+    });
+
+    view.addEventListener('load', () => {
+      try{ setStatus(view.contentWindow.location.href); }catch(e){}
+    });
+
+ // === SSE: MDN badge counts (snapshot + alarm) ===
+ let mdnCount = 0;
+ let es = null;
+
+ function updateMdnBadge() {
+   const badge = document.getElementById('mdnBadge');
+   if (!badge) return;
+
+   const text = mdnCount > 99 ? '99+' : String(mdnCount);
+   badge.textContent = text;
+   badge.classList.toggle('is-hidden', mdnCount <= 0);
+   badge.classList.toggle('is-compact', mdnCount >= 10);
+ }
+
+ function connectSSE() {
+   try {
+     es = new EventSource('/v1/webhooks/sdwan/');
+
+     es.onopen = () => {
+       setStatus('SSE connected: /v1/webhooks/sdwan/');
+     };
+
+     // event: snapshot で初期一覧が来る（{ items: [...] }）
+     es.addEventListener('snapshot', (evt) => {
+       try {
+         const data = JSON.parse(evt.data);
+         const items = Array.isArray(data?.items) ? data.items : [];
+         mdnCount = items.length;
+         updateMdnBadge();
+       } catch (e) {
+         console.warn('[SSE] snapshot parse failed', e);
+       }
+     });
+
+     // event: alarm で新規1件
+     es.addEventListener('alarm', (evt) => {
+       mdnCount += 1;
+       updateMdnBadge();
+     });
+
+     // フォールバック（event名なしの場合）
+     es.onmessage = (evt) => {
+       mdnCount += 1;
+       updateMdnBadge();
+     };
+
+     es.onerror = () => {
+       setStatus('SSE error (reconnecting…)');
+     };
+   } catch (e) {
+     setStatus('SSE failed to start');
+   }
+ }
+
+
+ render();
+ updateMdnBadge();
+ connectSSE();
+</script>
+</body>
+</html>

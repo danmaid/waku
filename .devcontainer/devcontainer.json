@@ -1,0 +1,22 @@
+{
+	"name": "RHEL9 Httpd DevContainer",
+	"image": "registry.access.redhat.com/ubi9/httpd-24:latest",
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"installZsh": false,
+			"username": "vscode",
+			"userUid": "1000",
+			"userGid": "1000"
+		}
+	},
+	"remoteUser": "vscode",
+	"runArgs": [
+		"--init",
+		"-p",
+		"8443:8443"
+	],
+	"overrideCommand": false,
+	"mounts": [
+		"source=${localWorkspaceFolder}/public,target=/var/www/html,type=bind"
+	]
+}
