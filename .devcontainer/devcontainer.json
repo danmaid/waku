@@ -7,16 +7,24 @@
 			"username": "vscode",
 			"userUid": "1000",
 			"userGid": "1000"
+		},
+		"ghcr.io/devcontainers/features/go:1": {
+			"version": "1.21"
 		}
 	},
 	"remoteUser": "vscode",
 	"runArgs": [
 		"--init",
 		"-p",
-		"8443:8443"
+		"8443:8443",
+		"-p",
+		"8080:8080"
 	],
 	"overrideCommand": false,
 	"mounts": [
-		"source=${localWorkspaceFolder}/public,target=/var/www/html,type=bind"
-	]
+		"source=${localWorkspaceFolder}/public,target=/var/www/html,type=bind",
+		"source=${localWorkspaceFolder}/config/httpd/dynamic-proxy-https.conf,target=/etc/httpd/conf.d/dynamic-proxy-https.conf,type=bind",
+		"source=${localWorkspaceFolder}/config/httpd/dynamic-proxy.conf,target=/etc/httpd/conf.d/dynamic-proxy.conf,type=bind"
+	],
+	"postCreateCommand": "cd /workspaces/waku && go mod download"
 }

@@ -159,6 +159,7 @@
     .navbtn[aria-current="page"]{ background: rgba(139,233,253,.14); border-color: rgba(139,233,253,.28); }
     .navbtn .label{ font-size: 13px; font-weight: 600; letter-spacing: .2px; overflow: hidden; text-overflow: ellipsis; max-width: 28vw; }
     .navbtn .ic{ width: var(--icon-size); height: var(--icon-size); display: inline-block; }
+    .navbtn.icon-only{ padding: 6px; width: 34px; justify-content: center; }
 
     /* Side bars */
     .side{ display:flex; flex-direction:column; align-items:center; padding:8px 4px; gap:8px; height:100%; overflow:auto; }
@@ -221,10 +222,11 @@
     body.autoHide.showTop header .rownav,
     body.autoHide.showTop header .hint{ opacity: 1; pointer-events: auto; }
 
-    body.autoHide:not(.showBottom) footer .rownav,
-    body.autoHide:not(.showBottom) footer #openNew{ opacity: 0; pointer-events: none; transition: opacity var(--anim) ease; }
-    body.autoHide.showBottom footer .rownav,
-    body.autoHide.showBottom footer #openNew{ opacity: 1; pointer-events: auto; }
+    body.autoHide:not(.showBottom) footer .rownav{ opacity: 0; pointer-events: none; transition: opacity var(--anim) ease; }
+    body.autoHide.showBottom footer .rownav{ opacity: 1; pointer-events: auto; }
+
+    body.autoHide:not(.showTop) header #openNew{ opacity: 0; pointer-events: none; transition: opacity var(--anim) ease; }
+    body.autoHide.showTop header #openNew{ opacity: 1; pointer-events: auto; }
 
     body.autoHide:not(.showLeft) aside.left .side{ opacity: 0; pointer-events: none; transition: opacity var(--anim) ease; }
     body.autoHide.showLeft aside.left .side{ opacity: 1; pointer-events: auto; }
@@ -290,6 +292,11 @@
       <div class="rownav"><div class="group" id="topNav"></div></div>
       <div class="spacer"></div>
       <div class="hint" id="status">Ready</div>
+      <button class="navbtn icon-only" id="openNew" type="button" title="現在のURLを新しいタブで開く" aria-label="現在のURLを新しいタブで開く">
+        <span class="ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 3h7v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M21 3 10 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+      </button>
 
       <!-- auto-hide ON/OFF : ヘッダー右端 -->
       <button id="pinToggle" type="button" title="ピン固定 / 自動的に逃げる（auto-hide）切替">
@@ -309,12 +316,6 @@
     <footer id="footer">
       <div class="rownav"><div class="group" id="bottomNav"></div></div>
       <div class="spacer"></div>
-      <button class="navbtn" id="openNew" title="現在のURLを新しいタブで開く">
-        <span class="ic" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 3h7v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M21 3 10 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        </span>
-        <span class="label">新しいタブ</span>
-      </button>
     </footer>
   </div>
 
@@ -350,11 +351,12 @@
       ],
       left: [
         { id:'fav', title:'SD-WAN', icon:'star', url:'https://manager.sdwan.danmaid.com' },
-        { id:'mail', title:'Catalyst Center', icon:'mail', url:'https://cml29090.danmaid.com' },
+        { id:'mail', title:'Catalyst Center', icon:'mail', url:'https://catc.danmaid:8443' },
         { id:'zabbix', title:'Zabbix', icon:'docs', url:'/zabbix/' },
         { id:'ssh', title:'SSH', icon:'forward', url:'/v1/ssh/' },
         { id:'set', title:'deploy', icon:'settings', url:'/v1/deploy/' },
         { id:'labo', title:'ラボ', icon:'info', url:'https://cml.danmaid.com/lab/2b13e418-8c52-470f-b31f-b29261e8e094' },
+        { id:'settings', title:'Dynamic Proxy', icon:'info', url:'/v1/proxy/' },
       ],
       right: [
         { id:'orchestrator', title:'オーケストレータ', icon:'info', url:'/v1/orchestrator/' },

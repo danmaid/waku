@@ -1,0 +1,58 @@
+# Binaries (但し、リリースファイルと static files は含まない)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+dynamic-proxy
+
+# Build artifacts
+.go/
+bin/
+
+# Test certificates and POC files
+poc.*
+test.*
+
+# Go
+go.work
+.go/
+vendor/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Logs
+*.log
+httpd_logs/
+/var/log/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Development
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+!README.md

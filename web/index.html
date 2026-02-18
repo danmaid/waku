@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Proxy 管理画面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .add-form {
+            background: #f7f9fc;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 2px solid #e1e8ed;
+        }
+        
+        .form-title {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .btn-small {
+            padding: 6px 15px;
+            font-size: 0.85em;
+            margin: 0 3px;
+        }
+        
+        .btn-delete {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .btn-edit {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e1e8ed;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tbody tr {
+            transition: background-color 0.2s;
+        }
+        
+        tbody tr:hover {
+            background-color: #f7f9fc;
+        }
+        
+        .host-cell {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .proxy-link {
+            cursor: pointer;
+            text-decoration: underline;
+            color: #667eea;
+            transition: color 0.2s;
+        }
+        
+        .proxy-link:hover {
+            color: #4c51bf;
+            font-weight: 700;
+        }
+        
+        .backend-cell {
+            font-family: 'Courier New', monospace;
+            color: #555;
+        }
+        
+        .description-cell {
+            color: #777;
+            font-style: italic;
+        }
+
+        .csp-cell {
+            font-family: 'Courier New', monospace;
+            color: #666;
+            font-size: 0.85em;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .csp-cell:hover {
+            background-color: #fff9e6;
+            border-radius: 4px;
+        }
+
+        .csp-badge {
+            display: inline-block;
+            background: #d4edda;
+            color: #155724;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .csp-badge.empty {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .csp-badge.custom {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-label {
+            font-size: 0.9em;
+            color: #444;
+        }
+
+        .help-text {
+            color: #777;
+            font-size: 0.8em;
+            margin-top: 6px;
+        }
+
+        /* テーブルをスクロール可能に */
+        .proxy-table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            min-width: 1000px;
+        }
+        
+        .actions-cell {
+            white-space: nowrap;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+        
+        .status {
+            display: none;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .status.show {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-message {
+            flex: 1;
+        }
+        
+        .status-close {
+            background: none;
+            border: none;
+            color: inherit;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        
+        .status-close:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        /* モーダルスタイル */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+        
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            transition: background 0.2s;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: none;
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .modal-footer {
+            padding: 20px 30px;
+            background: #f7f9fc;
+            border-radius: 0 0 16px 16px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .btn-cancel {
+            background: #6c757d;
+        }
+        
+        .btn-cancel:hover {
+            background: #5a6268;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        .add-button-container {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .btn-large {
+            padding: 15px 40px;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Dynamic Proxy 管理画面</h1>
+            <p class="subtitle">リバースプロキシ設定を管理</p>
+        </header>
+        
+        <div class="content">
+            <div id="status" class="status">
+                <span id="statusMessage" class="status-message"></span>
+                <button type="button" class="status-close" onclick="closeStatus()">×</button>
+            </div>
+            
+            <div class="add-button-container">
+                <button class="btn-large" onclick="openAddModal()">➕ 新しいプロキシを追加</button>
+                <button class="btn-large" onclick="downloadCACert()" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">🔐 CA証明書をダウンロード</button>
+            </div>
+            
+            <div id="proxyList"></div>
+        </div>
+    </div>
+    
+    <!-- 追加/編集モーダル -->
+    <div id="proxyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新しいプロキシを追加</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="proxyForm">
+                    <div class="form-group">
+                        <label for="modalHost">ホスト名 *</label>
+                        <input type="text" id="modalHost" name="host" placeholder="例: app.local" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalBackend">バックエンドURL *</label>
+                        <input type="text" id="modalBackend" name="backend" placeholder="例: http://localhost:3000" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalDnsAddress">DNSアドレス</label>
+                        <input type="text" id="modalDnsAddress" name="dns_address" placeholder="省略時: 127.0.0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>CSP 書き換え</label>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="modalCspEnabled" name="csp_enabled">
+                            <label for="modalCspEnabled" class="checkbox-label">CSP と X-Frame-Options を書き換え (iframe対応)</label>
+                        </div>
+                        <div id="modalCspNote" class="help-text">バックエンドの元のCSPを保持し、frame-ancestorsのみ追加します。元のCSPがない場合は寛容なデフォルトを使用します。</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeModal()">キャンセル</button>
+                <button type="submit" form="proxyForm" id="modalSubmit">追加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VirtualHost詳細編集モーダル -->
+    <div id="detailedEditModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="detailedEditTitle">VirtualHost設定を編集</h2>
+                <button class="modal-close" onclick="closeDetailedEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="detailedEditForm">
+                    <div class="form-group">
+                        <label for="detailedEditConfig">VirtualHost設定 *</label>
+                        <textarea id="detailedEditConfig" name="config" placeholder="VirtualHost設定を入力" required style="width: 100%; height: 400px; padding: 12px 15px; border: 2px solid #e1e8ed; border-radius: 8px; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                    </div>
+                    <div style="color: #777; font-size: 0.85em; margin-top: 10px;">
+                        <p><strong>注意:</strong> VirtualHost設定を直接編集します。</p>
+                        <p>必ず以下の条件を満たす必要があります:</p>
+                        <ul style="margin: 5px 0; padding-left: 20px;">
+                            <li>ServerName はホスト名と一致する必要があります</li>
+                            <li>ProxyPass ディレクティブを含める必要があります</li>
+                            <li>&lt;VirtualHost&gt;...&lt;/VirtualHost&gt; ブロックで囲む必要があります</li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeDetailedEditModal()">キャンセル</button>
+                <button type="submit" form="detailedEditForm" id="detailedEditSubmit">更新</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = '/v1/proxy';
+        let editingHost = null; // 編集中のホスト名
+        
+        // モーダルを開く（追加）
+        function openAddModal() {
+            editingHost = null;
+            document.getElementById('modalTitle').textContent = '新しいプロキシを追加';
+            document.getElementById('modalSubmit').textContent = '追加';
+            document.getElementById('proxyForm').reset();
+            document.getElementById('modalHost').disabled = false;
+            document.getElementById('modalCspEnabled').checked = true;
+            document.getElementById('modalCspNote').textContent = 'バックエンドの元のCSPを保持し、frame-ancestorsのみ追加します。元のCSPがない場合は寛容なデフォルトを使用します。';
+            document.getElementById('proxyModal').classList.add('show');
+        }
+        
+        // モーダルを開く（編集）
+        async function openEditModal(host) {
+            try {
+                const response = await fetch(`${API_BASE}/${encodeURIComponent(host)}`, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                const proxy = await response.json();
+                
+                editingHost = host;
+                document.getElementById('modalTitle').textContent = 'プロキシを編集';
+                document.getElementById('modalSubmit').textContent = '更新';
+                document.getElementById('modalHost').value = proxy.host;
+                document.getElementById('modalHost').disabled = true; // ホスト名は変更不可
+                document.getElementById('modalBackend').value = proxy.backend;
+                document.getElementById('modalDnsAddress').value = proxy.dns_address || '';
+                const cspEnabled = (proxy.csp || '').includes('frame-ancestors');
+                document.getElementById('modalCspEnabled').checked = cspEnabled;
+                if ((proxy.csp || '').trim() !== '' && !cspEnabled) {
+                    document.getElementById('modalCspNote').textContent = 'カスタムCSPが設定されています。ONにすると上書きされます（詳細編集で確認）';
+                } else {
+                    document.getElementById('modalCspNote').textContent = 'バックエンドの元のCSPを保持し、frame-ancestorsのみ追加します。元のCSPがない場合は寛容なデフォルトを使用します。';
+                }
+                document.getElementById('proxyModal').classList.add('show');
+            } catch (error) {
+                showStatus('データの取得に失敗しました: ' + error.message, 'error');
+            }
+        }
+        
+        // モーダルを閉じる
+        function closeModal() {
+            document.getElementById('proxyModal').classList.remove('show');
+            document.getElementById('proxyForm').reset();
+            editingHost = null;
+        }
+        
+        // モーダル外クリックで閉じる
+        document.getElementById('proxyModal').addEventListener('click', (e) => {
+            if (e.target.id === 'proxyModal') {
+                closeModal();
+            }
+        });
+        
+        // 詳細編集モーダルも同様
+        document.getElementById('detailedEditModal').addEventListener('click', (e) => {
+            if (e.target.id === 'detailedEditModal') {
+                closeDetailedEditModal();
+            }
+        });
+        
+        // ステータスメッセージを表示
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = message;
+            status.className = 'status show ' + type;
+            
+            // successの場合のみ自動で消す（3秒後）
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.className = 'status';
+                }, 3000);
+            }
+        }
+        
+        // ステータスメッセージを閉じる
+        function closeStatus() {
+            const status = document.getElementById('status');
+            status.className = 'status';
+        }
+        
+        // プロキシ一覧を取得して表示
+        async function loadProxies() {
+            try {
+                const response = await fetch(API_BASE, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                renderProxyList(data.proxies || []);
+            } catch (error) {
+                showStatus('プロキシ一覧の取得に失敗しました: ' + error.message, 'error');
+            }
+        }
+        
+        // プロキシ一覧をレンダリング
+        function renderProxyList(proxies) {
+            const container = document.getElementById('proxyList');
+            
+            if (proxies.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state fade-in">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                        <h3>プロキシ設定がありません</h3>
+                        <p>上のフォームから新しいプロキシを追加してください</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = `
+                <div class="proxy-table-wrapper">
+                    <table class="fade-in">
+                        <thead>
+                            <tr>
+                                <th>ホスト名</th>
+                                <th>バックエンドURL</th>
+                                <th>DNSアドレス</th>
+                                <th>CSP</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${proxies.map(proxy => {
+                                const trimmedCsp = (proxy.csp || '').trim();
+                                let cspDisplay = '<span class="csp-badge empty">OFF</span>';
+                                if (trimmedCsp !== '') {
+                                    if (trimmedCsp.includes('frame-ancestors')) {
+                                        cspDisplay = '<span class="csp-badge">ON</span>';
+                                    } else {
+                                        cspDisplay = `<span class="csp-badge custom" title="${escapeHtml(trimmedCsp)}">Custom</span>`;
+                                    }
+                                }
+                                return `
+                                    <tr>
+                                        <td class="host-cell"><a href="https://${escapeHtml(proxy.host)}:8443/" target="_blank" rel="noopener noreferrer" class="proxy-link">${escapeHtml(proxy.host)}</a></td>
+                                        <td class="backend-cell">${escapeHtml(proxy.backend)}</td>
+                                        <td class="backend-cell">${escapeHtml(proxy.dns_address || '-')}</td>
+                                        <td class="csp-cell">${cspDisplay}</td>
+                                        <td class="actions-cell">
+                                            <button class="btn-small btn-edit" onclick="openEditModal('${escapeHtml(proxy.host)}')">編集</button>
+                                            <button class="btn-small" onclick="openDetailedEditModal('${escapeHtml(proxy.host)}')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">詳細編集</button>
+                                            <button class="btn-small btn-delete" onclick="deleteProxy('${escapeHtml(proxy.host)}')">削除</button>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        // HTMLエスケープ
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // プロキシを追加/更新
+        document.getElementById('proxyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const cspEnabled = document.getElementById('modalCspEnabled').checked;
+            
+            // CSP設定が有効な場合、バックエンドを分析してCSPを取得
+            let cspPolicy = '';
+            if (cspEnabled) {
+                const origin = window.location.origin;
+                const backend = formData.get('backend');
+                const host = formData.get('host');
+                
+                // デフォルトの寛容なCSP（バックエンドからCSPが取得できない場合用）
+                const defaultCsp = [
+                    `default-src 'self' https: http:`,
+                    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:`,
+                    `style-src 'self' 'unsafe-inline' https: http:`,
+                    `img-src 'self' data: blob: https: http:`,
+                    `font-src 'self' data: https: http:`,
+                    `connect-src 'self' https: http: wss: ws:`,
+                    `frame-src 'self'`,
+                    `frame-ancestors 'self' ${origin}`,
+                    `form-action 'self'`,
+                    `base-uri 'self'`,
+                    `object-src 'none'`
+                ].join('; ');
+                
+                // バックエンドから既存のCSPを取得
+                try {
+                    // 編集時はホスト名が確定しているので分析可能
+                    // 新規作成時はバックエンドURLから直接取得を試みる
+                    let backendCsp = '';
+                    
+                    if (editingHost) {
+                        // 編集時：analyze APIを使用
+                        const analyzeResp = await fetch(`${API_BASE}/${encodeURIComponent(editingHost)}/analyze`, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        if (analyzeResp.ok) {
+                            const analyzeData = await analyzeResp.json();
+                            backendCsp = analyzeData.csp || '';
+                        }
+                    } else {
+                        // 新規作成時：バックエンドURLに直接アクセス
+                        try {
+                            const backendResp = await fetch(backend, { method: 'HEAD' });
+                            backendCsp = backendResp.headers.get('Content-Security-Policy') || '';
+                        } catch (err) {
+                            console.log('Failed to fetch backend CSP:', err);
+                        }
+                    }
+                    
+                    // CSPポリシーを処理
+                    if (backendCsp) {
+                        // 既存のCSPからframe-ancestorsを削除
+                        const directives = backendCsp.split(';').map(d => d.trim()).filter(d => d);
+                        const filteredDirectives = directives.filter(d => !d.startsWith('frame-ancestors'));
+                        
+                        // frame-ancestorsを追加
+                        filteredDirectives.push(`frame-ancestors 'self' ${origin}`);
+                        cspPolicy = filteredDirectives.join('; ');
+                    } else {
+                        // バックエンドにCSPがない場合はデフォルトを使用
+                        cspPolicy = defaultCsp;
+                    }
+                } catch (error) {
+                    console.log('Failed to analyze backend, using default CSP:', error);
+                    cspPolicy = defaultCsp;
+                }
+            }
+            
+            const data = {
+                host: formData.get('host'),
+                backend: formData.get('backend'),
+                dns_address: formData.get('dns_address'),
+                csp: cspPolicy
+            };
+            
+            try {
+                let response;
+                if (editingHost) {
+                    // 更新
+                    response = await fetch(`${API_BASE}/${encodeURIComponent(editingHost)}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            backend: data.backend,
+                            dns_address: data.dns_address,
+                            csp: data.csp
+                        })
+                    });
+                } else {
+                    // 追加
+                    response = await fetch(API_BASE, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+                }
+                
+                if (response.ok) {
+                    showStatus(editingHost ? 'プロキシを更新しました' : 'プロキシを追加しました');
+                    closeModal();
+                    loadProxies();
+                } else {
+                    const error = await response.text();
+                    showStatus((editingHost ? '更新' : '追加') + 'に失敗しました: ' + error, 'error');
+                }
+            } catch (error) {
+                showStatus('エラーが発生しました: ' + error.message, 'error');
+            }
+        });
+        
+        // プロキシを削除
+        async function deleteProxy(host) {
+            if (!confirm(`プロキシ "${host}" を削除しますか？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/${encodeURIComponent(host)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    showStatus('プロキシを削除しました');
+                    loadProxies();
+                } else {
+                    const error = await response.text();
+                    showStatus('削除に失敗しました: ' + error, 'error');
+                }
+            } catch (error) {
+                showStatus('エラーが発生しました: ' + error.message, 'error');
+            }
+        }
+        
+        // CA証明書をダウンロード
+        function downloadCACert() {
+            window.location.href = '/v1/ca/download';
+        }
+        
+        // 詳細編集モーダルを開く
+        async function openDetailedEditModal(host) {
+            try {
+                const response = await fetch(`${API_BASE}/${encodeURIComponent(host)}/config`, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                document.getElementById('detailedEditTitle').textContent = `VirtualHost設定を編集: ${escapeHtml(host)}`;
+                document.getElementById('detailedEditConfig').value = data.config;
+                document.getElementById('detailedEditModal').classList.add('show');
+                
+                // フォーム送信ハンドラーを設定
+                document.getElementById('detailedEditForm').onsubmit = async (e) => {
+                    e.preventDefault();
+                    
+                    const configText = document.getElementById('detailedEditConfig').value;
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/${encodeURIComponent(host)}/config`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({ config: configText })
+                        });
+                        
+                        if (response.ok) {
+                            showStatus('VirtualHost設定を更新しました');
+                            closeDetailedEditModal();
+                            loadProxies();
+                        } else {
+                            const error = await response.text();
+                            showStatus('更新に失敗しました: ' + error, 'error');
+                        }
+                    } catch (error) {
+                        showStatus('エラーが発生しました: ' + error.message, 'error');
+                    }
+                };
+            } catch (error) {
+                showStatus('設定の取得に失敗しました: ' + error.message, 'error');
+            }
+        }
+        
+        // 詳細編集モーダルを閉じる
+        function closeDetailedEditModal() {
+            document.getElementById('detailedEditModal').classList.remove('show');
+            document.getElementById('detailedEditForm').reset();
+            document.getElementById('detailedEditForm').onsubmit = null;
+        }
+        
+        // 詳細編集モーダル外クリックで閉じる
+        document.getElementById('detailedEditModal').addEventListener('click', (e) => {
+            if (e.target.id === 'detailedEditModal') {
+                closeDetailedEditModal();
+            }
+        });
+
+        // バックエンドを分析して CSP を取得
+        async function analyzeBackendCSP(host) {
+            try {
+                const response = await fetch(`${API_BASE}/${encodeURIComponent(host)}/analyze`, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    showStatus('バックエンド分析に失敗しました: ' + error, 'error');
+                    return;
+                }
+
+                const data = await response.json();
+
+                // 分析結果をウィンドウで表示
+                let resultMessage = `バックエンド: ${escapeHtml(host)}\n\n`;
+                resultMessage += `ステータスコード: ${data.status_code}\n`;
+                resultMessage += `CSP (Content-Security-Policy):\n`;
+                resultMessage += data.csp ? escapeHtml(data.csp) : '(未設定)';
+                resultMessage += `\n\nX-Frame-Options:\n`;
+                resultMessage += data.x_frame_options ? escapeHtml(data.x_frame_options) : '(未設定)';
+
+                // 確認ダイアログで、取得した CSP を設定するか確認
+                if (data.csp && confirm('取得した CSP を設定フォームに入力しますか？\n\n' + data.csp)) {
+                    // 編集モーダルを開いて CSP を入力
+                    try {
+                        const getResponse = await fetch(`${API_BASE}/${encodeURIComponent(host)}`, {
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+                        const proxyData = await getResponse.json();
+
+                        editingHost = host;
+                        document.getElementById('modalTitle').textContent = 'プロキシを編集';
+                        document.getElementById('modalSubmit').textContent = '更新';
+                        document.getElementById('modalHost').value = proxyData.host;
+                        document.getElementById('modalHost').disabled = true;
+                        document.getElementById('modalBackend').value = proxyData.backend;
+                        document.getElementById('modalDnsAddress').value = proxyData.dns_address || '';
+                        document.getElementById('modalCsp').value = data.csp;
+                        document.getElementById('proxyModal').classList.add('show');
+
+                        showStatus('取得した CSP をフォームに入力しました', 'success');
+                    } catch (error) {
+                        showStatus('フォーム入力に失敗しました: ' + error.message, 'error');
+                    }
+                } else {
+                    // 結果を情報メッセージで表示
+                    showStatus('バックエンド分析完了\n' + resultMessage.replace(/\n/g, ' | '), 'success');
+                }
+            } catch (error) {
+                showStatus('バックエンド分析エラー: ' + error.message, 'error');
+            }
+        }
+        
+        // ESCキーでモーダルを閉じる
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (document.getElementById('detailedEditModal').classList.contains('show')) {
+                    closeDetailedEditModal();
+                } else if (document.getElementById('proxyModal').classList.contains('show')) {
+                    closeModal();
+                }
+            }
+        });
+
+        // CA証明書をダウンロード
+        function downloadCACert() {
+            window.location.href = '/v1/ca/download';
+        }
+        
+
+        // 初期ロード
+        loadProxies();
+    </script>
+</body>
+</html>
+
