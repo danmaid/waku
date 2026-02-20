@@ -1,0 +1,59 @@
+
+services:
+  mysql:
+    image: mysql:8.0
+    command:
+      --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: zabbix
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  httpd:
+    image: registry.access.redhat.com/ubi9/httpd-24:latest
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./public:/var/www/html:ro
+      - ./config/httpd/dynamic-proxy.conf:/etc/httpd/conf.d/dynamic-proxy.conf:ro
+      - ./config/httpd/dynamic-proxy-https.conf:/etc/httpd/conf.d/dynamic-proxy-https.conf:ro
+      - ./config/httpd/zabbix.conf:/etc/httpd/conf.d/zabbix.conf:ro
+    environment:
+      - TZ=Asia/Tokyo
+    restart: unless-stopped
+
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:7.0.9-alpine
+    environment:
+      DB_SERVER_HOST: mysql
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: zabbix
+    depends_on:
+      - mysql
+    ports:
+      - "10051:10051"
+
+  zabbix-web:
+    image: zabbix/zabbix-web-apache-mysql:7.0.9-alpine
+    environment:
+      DB_SERVER_HOST: mysql
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: zabbix
+      ZBX_SERVER_HOST: zabbix-server
+      PHP_TZ: Asia/Tokyo
+    depends_on:
+      - mysql
+      - zabbix-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/httpd/zabbix2.conf:/etc/apache2/conf.d/alias.conf:ro
+volumes:
+  mysql-data:

@@ -1,30 +1,27 @@
 {
-	"name": "RHEL9 Httpd DevContainer",
-	"image": "registry.access.redhat.com/ubi9/httpd-24:latest",
-	"features": {
-		"ghcr.io/devcontainers/features/common-utils:2": {
-			"installZsh": false,
-			"username": "vscode",
-			"userUid": "1000",
-			"userGid": "1000"
-		},
-		"ghcr.io/devcontainers/features/go:1": {
-			"version": "1.21"
-		}
+	"name": "Go DevContainer",
+	"build": {
+		"dockerfile": "Dockerfile"
 	},
-	"remoteUser": "vscode",
-	"runArgs": [
-		"--init",
-		"-p",
-		"8443:8443",
-		"-p",
-		"8080:8080"
-	],
-	"overrideCommand": false,
+	   "runArgs": [
+		   "--init",
+		"--privileged",
+		"--add-host=host.docker.internal:host-gateway"
+	   ],
 	"mounts": [
-		"source=${localWorkspaceFolder}/public,target=/var/www/html,type=bind",
-		"source=${localWorkspaceFolder}/config/httpd/dynamic-proxy-https.conf,target=/etc/httpd/conf.d/dynamic-proxy-https.conf,type=bind",
-		"source=${localWorkspaceFolder}/config/httpd/dynamic-proxy.conf,target=/etc/httpd/conf.d/dynamic-proxy.conf,type=bind"
+		"source=${localWorkspaceFolder}/public,target=/workspaces/waku/public,type=bind",
+		"source=${localWorkspaceFolder}/config,target=/workspaces/waku/config,type=bind",
+		// docker.sock のマウントはDinDでは不要
 	],
-	"postCreateCommand": "cd /workspaces/waku && go mod download"
+	"features": {},
+	"postCreateCommand": "/usr/local/bin/start-dind.sh && go mod download && go build -o bin/dynamic-proxy main.go",
+	"postStartCommand": "sudo docker compose up -d",
+	"customizations": {
+		"vscode": {
+			"settings": {},
+			"extensions": [
+				"golang.Go"
+			]
+		}
+	}
 }
