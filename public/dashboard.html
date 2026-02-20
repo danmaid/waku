@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>ダッシュボード</title>
+    <style>
+        :root{
+            --bg: #0b0f17;
+            --panel: rgba(255,255,255,.06);
+            --line: rgba(255,255,255,.12);
+            --text: rgba(255,255,255,.92);
+            --muted: rgba(255,255,255,.62);
+            --accent: rgba(139,233,253,.18);
+        }
+        *{ box-sizing: border-box; }
+        body{
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+        }
+        header{
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel);
+        }
+        main{
+            padding: 20px;
+            display: grid;
+            gap: 16px;
+        }
+        .grid{
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .card{
+            padding: 16px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--panel);
+        }
+        .card.highlight{ background: linear-gradient(180deg, var(--accent), var(--panel)); }
+        .muted{ color: var(--muted); }
+        .metric{
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+        .spark{
+            margin-top: 10px;
+            height: 80px;
+            border-radius: 10px;
+            background: linear-gradient(180deg, rgba(139,233,253,.2), transparent 70%);
+            border: 1px dashed rgba(255,255,255,.15);
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ダッシュボード</h1>
+        <p class="muted">サンプルの概要ビューです。メトリクスやアラートを配置できます。</p>
+    </header>
+    <main>
+        <section class="grid">
+            <div class="card highlight">
+                <h2>稼働率</h2>
+                <div class="metric">99.98%</div>
+                <div class="spark">Sample Sparkline</div>
+            </div>
+            <div class="card">
+                <h2>アラート</h2>
+                <div class="metric">3</div>
+                <div class="spark">Sample Trend</div>
+            </div>
+            <div class="card">
+                <h2>遅延</h2>
+                <div class="metric">24 ms</div>
+                <div class="spark">Sample Trend</div>
+            </div>
+            <div class="card">
+                <h2>スループット</h2>
+                <div class="metric">1.8 Gbps</div>
+                <div class="spark">Sample Trend</div>
+            </div>
+        </section>
+        <section class="card">
+            <h2>メモ</h2>
+            <p class="muted">ここに運用メモや最新のイベント要約を表示できます。</p>
+        </section>
+    </main>
+</body>
+</html>

@@ -1,0 +1,313 @@
+    <!-- もともとあったカード型チャート群を復元 -->
+    <section class="grid" style="margin-top:32px;">
+      <div class="card">
+        <h2>稼働率</h2>
+        <div class="chart-card">
+          <span class="chart-label peak">Peak 99.99%</span>
+          <span class="chart-label avg">Avg 99.95%</span>
+          <svg viewBox="0 0 240 140" aria-hidden="true">
+            <polyline class="chart-grid" points="0,20 240,20" />
+            <polyline class="chart-grid" points="0,70 240,70" />
+            <polyline class="chart-grid" points="0,120 240,120" />
+            <polygon class="chart-fill" points="0,120 20,118 40,116 60,118 80,115 100,110 120,112 140,108 160,104 180,108 200,102 220,106 240,100 240,140 0,140" />
+            <polyline class="chart-line" points="0,120 20,118 40,116 60,118 80,115 100,110 120,112 140,108 160,104 180,108 200,102 220,106 240,100" />
+          </svg>
+        </div>
+      </div>
+      <div class="card">
+        <h2>アラート</h2>
+        <div class="chart-card">
+          <span class="chart-label peak">Peak 9 / h</span>
+          <span class="chart-label avg">Avg 3 / h</span>
+          <svg viewBox="0 0 240 140" aria-hidden="true">
+            <polyline class="chart-grid" points="0,20 240,20" />
+            <polyline class="chart-grid" points="0,70 240,70" />
+            <polyline class="chart-grid" points="0,120 240,120" />
+            <polygon class="chart-fill" points="0,120 20,112 40,120 60,110 80,98 100,120 120,92 140,100 160,80 180,118 200,90 220,108 240,96 240,140 0,140" />
+            <polyline class="chart-line" points="0,120 20,112 40,120 60,110 80,98 100,120 120,92 140,100 160,80 180,118 200,90 220,108 240,96" />
+          </svg>
+        </div>
+      </div>
+      <div class="card">
+        <h2>遅延</h2>
+        <div class="chart-card">
+          <span class="chart-label peak">Peak 64 ms</span>
+          <span class="chart-label avg">Avg 31 ms</span>
+          <svg viewBox="0 0 240 140" aria-hidden="true">
+            <polyline class="chart-grid" points="0,20 240,20" />
+            <polyline class="chart-grid" points="0,70 240,70" />
+            <polyline class="chart-grid" points="0,120 240,120" />
+            <polygon class="chart-fill" points="0,120 20,112 40,100 60,110 80,96 100,86 120,92 140,70 160,76 180,86 200,78 220,90 240,84 240,140 0,140" />
+            <polyline class="chart-line" points="0,120 20,112 40,100 60,110 80,96 100,86 120,92 140,70 160,76 180,86 200,78 220,90 240,84" />
+          </svg>
+        </div>
+      </div>
+      <div class="card">
+        <h2>スループット</h2>
+        <div class="chart-card">
+          <span class="chart-label peak">Peak 2.4 Gbps</span>
+          <span class="chart-label avg">Avg 1.8 Gbps</span>
+          <svg viewBox="0 0 240 140" aria-hidden="true">
+            <polyline class="chart-grid" points="0,20 240,20" />
+            <polyline class="chart-grid" points="0,70 240,70" />
+            <polyline class="chart-grid" points="0,120 240,120" />
+            <polygon class="chart-fill" points="0,120 20,106 40,98 60,104 80,92 100,76 120,84 140,66 160,72 180,60 200,68 220,56 240,64 240,140 0,140" />
+            <polyline class="chart-line" points="0,120 20,106 40,98 60,104 80,92 100,76 120,84 140,66 160,72 180,60 200,68 220,56 240,64" />
+          </svg>
+        </div>
+      </div>
+    </section>
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>時系列</title>
+  <style>
+    :root{
+      --bg: #0b0f17;
+      --panel: rgba(255,255,255,.06);
+      --line: rgba(255,255,255,.12);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.62);
+      --accent: rgba(139,233,253,.18);
+    }
+    *{ box-sizing: border-box; }
+    body{
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+    }
+    header{
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    main{
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+    .grid{
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .card{
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+    }
+    .card.highlight{ background: linear-gradient(180deg, var(--accent), var(--panel)); }
+    .muted{ color: var(--muted); }
+    .chart-card{
+      position: relative;
+      height: 180px;
+      border-radius: 12px;
+      border: 1px dashed rgba(255,255,255,.15);
+      background: linear-gradient(180deg, rgba(139,233,253,.14), transparent 60%);
+      overflow: hidden;
+    }
+    .chart-card svg{
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .chart-grid{
+      stroke: rgba(255,255,255,.08);
+      stroke-width: 1;
+    }
+    .chart-line{
+      fill: none;
+      stroke: rgba(139,233,253,.9);
+      stroke-width: 2;
+    }
+    .chart-fill{
+      fill: rgba(139,233,253,.12);
+    }
+    .chart-label{
+      position: absolute;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.55);
+      font-size: 11px;
+      color: var(--text);
+      letter-spacing: .2px;
+      pointer-events: none;
+    }
+    .chart-label.peak{ top: 14px; right: 14px; }
+    .chart-label.avg{ bottom: 14px; left: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>時系列</h1>
+    <p class="muted">ダッシュボードのメトリクスに時間軸を追加したイメージのサンプルです。</p>
+  </header>
+  <main>
+    <!-- インタラクティブフィルタ（サンプル） -->
+    <section style="margin-bottom: 24px;">
+      <form id="filterForm" style="display: flex; gap: 12px; align-items: center;">
+        <label>機器名
+          <select id="deviceFilter">
+            <option value="all">全て</option>
+            <option value="DeviceA">DeviceA</option>
+            <option value="DeviceB">DeviceB</option>
+            <option value="DeviceC">DeviceC</option>
+          </select>
+        </label>
+        <label>障害状態
+          <select id="statusFilter">
+            <option value="all">全て</option>
+            <option value="active">発生中</option>
+            <option value="recovered">復旧済み</option>
+          </select>
+        </label>
+        <label>期間
+          <input type="date" id="dateFrom" value="2026-02-01">
+          ～
+          <input type="date" id="dateTo" value="2026-02-19">
+        </label>
+        <button type="button" onclick="alert('フィルタはサンプルです')">絞り込み</button>
+      </form>
+    </section>
+
+    <section style="display: flex; gap: 24px;">
+
+      <!-- グリッド型ヒートマップ -->
+      <div style="flex:1; min-width:320px;">
+        <h2 style="margin-bottom:8px;">障害ヒートマップ</h2>
+        <div id="heatmapGrid" style="overflow-x:auto; max-height:320px; overflow-y:auto;"></div>
+      </div>
+
+      <!-- ラスタービュー（100件サンプル） -->
+      <div style="flex:1; min-width:320px;">
+        <h2 style="margin-bottom:8px;">障害ラスタービュー</h2>
+        <div id="rasterView" style="position:relative; height:320px; background:var(--panel); border-radius:8px; border:1px solid var(--line); overflow-y:auto;"></div>
+      </div>
+    </main>
+    <script>
+    // サンプルデータ生成（100件）
+    const devices = Array.from({length: 20}, (_, i) => `Device${String.fromCharCode(65 + (i % 26))}${i}`);
+    const events = [];
+    for(let i=0; i<100; i++){
+      const device = devices[Math.floor(Math.random()*devices.length)];
+      const start = new Date(2026, 1, Math.floor(Math.random()*19)+1, Math.floor(Math.random()*24), Math.floor(Math.random()*60));
+      const duration = Math.floor(Math.random()*180)+10; // 10-190分
+      const end = new Date(start.getTime() + duration*60000);
+      const status = Math.random()<0.2 ? '発生中' : '復旧済み';
+      events.push({device, start, end: status==='発生中'?null:end, status});
+    }
+
+    // フィルタ連動用
+    function getFilteredEvents() {
+      const devSel = document.getElementById('deviceFilter').value;
+      const statSel = document.getElementById('statusFilter').value;
+      const from = new Date(document.getElementById('dateFrom').value);
+      const to = new Date(document.getElementById('dateTo').value);
+      return events.filter(ev =>
+        (devSel==='all'||ev.device===devSel) &&
+        (statSel==='all'||(statSel==='active'?ev.status==='発生中':ev.status==='復旧済み')) &&
+        ev.start>=from && ev.start<=to
+      );
+    }
+
+    // グリッド型ヒートマップ描画
+    function renderHeatmap(filtered) {
+      const heatmapGrid = document.getElementById('heatmapGrid');
+      heatmapGrid.innerHTML = '';
+      // 時間軸（1時間ごと）
+      const minTime = new Date(document.getElementById('dateFrom').value+'T00:00:00').getTime();
+      const maxTime = new Date(document.getElementById('dateTo').value+'T23:59:59').getTime();
+      const hours = [];
+      for(let t=minTime; t<=maxTime; t+=3600000) hours.push(new Date(t));
+      // 機器リスト
+      const deviceRows = Array.from(new Set(filtered.map(ev=>ev.device)));
+      // グリッド生成
+      const table = document.createElement('table');
+      table.style.borderCollapse = 'collapse';
+      table.style.width = '100%';
+      table.style.fontSize = '11px';
+      // ヘッダー
+      const thead = document.createElement('thead');
+      let thRow = '<tr><th style="position:sticky;left:0;background:var(--panel);">機器</th>';
+      hours.forEach(h=>{
+        thRow += `<th style="min-width:28px;">${h.getHours()}</th>`;
+      });
+      thRow += '</tr>';
+      thead.innerHTML = thRow;
+      table.appendChild(thead);
+      // ボディ
+      const tbody = document.createElement('tbody');
+      deviceRows.forEach(dev=>{
+        let tr = `<tr><td style="position:sticky;left:0;background:var(--panel);">${dev}</td>`;
+        hours.forEach(h=>{
+          // この機器・この時間帯の障害件数
+          const cnt = filtered.filter(ev=>ev.device===dev && ev.start.getFullYear()===h.getFullYear() && ev.start.getMonth()===h.getMonth() && ev.start.getDate()===h.getDate() && ev.start.getHours()===h.getHours()).length;
+          const color = cnt===0 ? 'transparent' : `rgba(255,0,0,${Math.min(0.05+cnt*0.15,0.7)})`;
+          tr += `<td style="background:${color};text-align:center;">${cnt>0?cnt:''}</td>`;
+        });
+        tr += '</tr>';
+        tbody.innerHTML += tr;
+      });
+      table.appendChild(tbody);
+      heatmapGrid.appendChild(table);
+    }
+
+    // ラスタービュー描画
+    function renderRaster(filtered) {
+      const rasterView = document.getElementById('rasterView');
+      rasterView.innerHTML = '';
+      const deviceRows = Array.from(new Set(filtered.map(ev=>ev.device)));
+      const rowHeight = 24;
+      rasterView.style.height = Math.max(320, deviceRows.length*rowHeight+20)+'px';
+      deviceRows.forEach((dev, idx) => {
+        const label = document.createElement('span');
+        label.textContent = dev;
+        label.style.position = 'absolute';
+        label.style.left = '8px';
+        label.style.top = (idx*rowHeight+4)+'px';
+        label.style.color = 'var(--text)';
+        label.style.fontSize = '12px';
+        rasterView.appendChild(label);
+      });
+      // 時間軸（横幅）: フィルタ期間
+      const minTime = new Date(document.getElementById('dateFrom').value+'T00:00:00').getTime();
+      const maxTime = new Date(document.getElementById('dateTo').value+'T23:59:59').getTime();
+      const pxPerMs = (rasterView.clientWidth-120)/(maxTime-minTime);
+      filtered.forEach(ev => {
+        const idx = deviceRows.indexOf(ev.device);
+        const left = 120 + Math.floor((ev.start.getTime()-minTime)*pxPerMs);
+        const width = ev.end ? Math.max(2, Math.floor(((ev.end.getTime()-ev.start.getTime())*pxPerMs))) : 8;
+        const bar = document.createElement('div');
+        bar.style.position = 'absolute';
+        bar.style.left = left+'px';
+        bar.style.top = (idx*rowHeight+6)+'px';
+        bar.style.height = '12px';
+        bar.style.width = width+'px';
+        bar.style.background = ev.status==='発生中' ? 'rgba(255,0,0,.28)' : 'rgba(255,140,0,.18)';
+        bar.style.borderRadius = '6px';
+        bar.title = `${ev.device}\n${ev.start.toLocaleString('ja-JP',{hour12:false})} ～ ${ev.end?ev.end.toLocaleString('ja-JP',{hour12:false}):'発生中'}`;
+        rasterView.appendChild(bar);
+      });
+    }
+
+    // フィルタ連動
+    function updateViews() {
+      const filtered = getFilteredEvents();
+      renderHeatmap(filtered);
+      renderRaster(filtered);
+    }
+    document.getElementById('filterForm').addEventListener('change', updateViews);
+    document.getElementById('filterForm').addEventListener('input', updateViews);
+    updateViews();
+    </script>
+    </section>
+  </main>
+</body>
+</html>
