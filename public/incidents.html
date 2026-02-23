@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>障害情報一覧</title>
+  <script src="/sw-register.js" async></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+    }
+
+    .split-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .split-half {
+      flex: 1 1 0;
+      min-height: 0;
+      padding: 0.5em 0.5em 0 0.5em;
+      box-sizing: border-box;
+    }
+
+    .scroll-table {
+      height: 100%;
+      max-height: 100%;
+      overflow-y: auto;
+      background: #fff;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th,
+    td {
+      border: 1px solid #ccc;
+      padding: 0.5em;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f5f5f5;
+    }
+
+    caption {
+      caption-side: top;
+      font-weight: bold;
+      font-size: 1.1em;
+      padding: 0.3em 0;
+      text-align: left;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="scroll-table" style="height: 90vh;">
+    <table id="incident-table">
+      <caption>problem</caption>
+      <thead>
+        <tr id="incident-header-row">
+          <th>読み込み中...</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>読み込み中...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <script>
+    // /v1/problems から取得し、hosts情報も含めて動的にテーブル描画
+    async function fetchProblems() {
+      const table = document.getElementById('incident-table');
+      const theadRow = document.getElementById('incident-header-row');
+      const tbody = table.querySelector('tbody');
+      tbody.innerHTML = '<tr><td>読み込み中...</td></tr>';
+      try {
+        const res = await fetch('/v1/incidents');
+        if (!res.ok) throw new Error('APIエラー: ' + res.status);
+        const data = await res.json();
+        tbody.innerHTML = '';
+        if (!Array.isArray(data) || data.length === 0) {
+          theadRow.innerHTML = '<th>データなし</th>';
+          tbody.innerHTML = '<tr><td>障害情報はありません</td></tr>';
+          return;
+        }
+        // 動的にヘッダー生成（hosts配列があればhostid/hostも展開）
+        let keys = Object.keys(data[0]);
+        // hosts配列があれば展開
+        if (data.some(item => Array.isArray(item.hosts) && item.hosts.length > 0)) {
+          keys = keys.filter(k => k !== 'hosts');
+          keys.push('hostid', 'host');
+        }
+        theadRow.innerHTML = keys.map(k => `<th>${k}</th>`).join('');
+        // データ行生成
+        data.forEach(item => {
+          if (Array.isArray(item.hosts) && item.hosts.length > 0) {
+            item.hosts.forEach(h => {
+              const tr = document.createElement('tr');
+              const row = keys.map(k => {
+                if (k === 'hostid') return h.hostid;
+                if (k === 'host') return h.host;
+                return item[k] ?? '';
+              });
+              tr.innerHTML = row.map(v => `<td>${v}</td>`).join('');
+              tbody.appendChild(tr);
+            });
+          } else {
+            const tr = document.createElement('tr');
+            tr.innerHTML = keys.map(k => {
+              if (k === 'hostid' || k === 'host') return '';
+              return item[k] ?? '';
+            }).join('');
+            tbody.appendChild(tr);
+          }
+        });
+      } catch (e) {
+        theadRow.innerHTML = '<th>エラー</th>';
+        tbody.innerHTML = `<tr><td>障害情報の取得に失敗しました: ${e.message}</td></tr>`;
+      }
+    }
+    fetchProblems();
+  </script>
+</body>
+
+</html>

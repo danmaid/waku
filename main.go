@@ -42,7 +42,7 @@ func main() {
 	resolver := doh.NewResolver(*dnsServer)
 
 	// TLSマネージャーの初期化（CA証明書の自動生成）
-	tlsManager, err := tls.NewManager("")
+	tlsManager, err := tls.NewManager("config/tls")
 	if err != nil {
 		log.Fatalf("Failed to initialize TLS manager: %v", err)
 	}

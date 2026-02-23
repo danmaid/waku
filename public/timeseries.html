@@ -1,62 +1,3 @@
-    <!-- もともとあったカード型チャート群を復元 -->
-    <section class="grid" style="margin-top:32px;">
-      <div class="card">
-        <h2>稼働率</h2>
-        <div class="chart-card">
-          <span class="chart-label peak">Peak 99.99%</span>
-          <span class="chart-label avg">Avg 99.95%</span>
-          <svg viewBox="0 0 240 140" aria-hidden="true">
-            <polyline class="chart-grid" points="0,20 240,20" />
-            <polyline class="chart-grid" points="0,70 240,70" />
-            <polyline class="chart-grid" points="0,120 240,120" />
-            <polygon class="chart-fill" points="0,120 20,118 40,116 60,118 80,115 100,110 120,112 140,108 160,104 180,108 200,102 220,106 240,100 240,140 0,140" />
-            <polyline class="chart-line" points="0,120 20,118 40,116 60,118 80,115 100,110 120,112 140,108 160,104 180,108 200,102 220,106 240,100" />
-          </svg>
-        </div>
-      </div>
-      <div class="card">
-        <h2>アラート</h2>
-        <div class="chart-card">
-          <span class="chart-label peak">Peak 9 / h</span>
-          <span class="chart-label avg">Avg 3 / h</span>
-          <svg viewBox="0 0 240 140" aria-hidden="true">
-            <polyline class="chart-grid" points="0,20 240,20" />
-            <polyline class="chart-grid" points="0,70 240,70" />
-            <polyline class="chart-grid" points="0,120 240,120" />
-            <polygon class="chart-fill" points="0,120 20,112 40,120 60,110 80,98 100,120 120,92 140,100 160,80 180,118 200,90 220,108 240,96 240,140 0,140" />
-            <polyline class="chart-line" points="0,120 20,112 40,120 60,110 80,98 100,120 120,92 140,100 160,80 180,118 200,90 220,108 240,96" />
-          </svg>
-        </div>
-      </div>
-      <div class="card">
-        <h2>遅延</h2>
-        <div class="chart-card">
-          <span class="chart-label peak">Peak 64 ms</span>
-          <span class="chart-label avg">Avg 31 ms</span>
-          <svg viewBox="0 0 240 140" aria-hidden="true">
-            <polyline class="chart-grid" points="0,20 240,20" />
-            <polyline class="chart-grid" points="0,70 240,70" />
-            <polyline class="chart-grid" points="0,120 240,120" />
-            <polygon class="chart-fill" points="0,120 20,112 40,100 60,110 80,96 100,86 120,92 140,70 160,76 180,86 200,78 220,90 240,84 240,140 0,140" />
-            <polyline class="chart-line" points="0,120 20,112 40,100 60,110 80,96 100,86 120,92 140,70 160,76 180,86 200,78 220,90 240,84" />
-          </svg>
-        </div>
-      </div>
-      <div class="card">
-        <h2>スループット</h2>
-        <div class="chart-card">
-          <span class="chart-label peak">Peak 2.4 Gbps</span>
-          <span class="chart-label avg">Avg 1.8 Gbps</span>
-          <svg viewBox="0 0 240 140" aria-hidden="true">
-            <polyline class="chart-grid" points="0,20 240,20" />
-            <polyline class="chart-grid" points="0,70 240,70" />
-            <polyline class="chart-grid" points="0,120 240,120" />
-            <polygon class="chart-fill" points="0,120 20,106 40,98 60,104 80,92 100,76 120,84 140,66 160,72 180,60 200,68 220,56 240,64 240,140 0,140" />
-            <polyline class="chart-line" points="0,120 20,106 40,98 60,104 80,92 100,76 120,84 140,66 160,72 180,60 200,68 220,56 240,64" />
-          </svg>
-        </div>
-      </div>
-    </section>
 <!doctype html>
 <html lang="ja">
 <head>
@@ -64,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
   <title>時系列</title>
+  <script src="/sw-register.js" async></script>
   <style>
     :root{
       --bg: #0b0f17;
@@ -140,7 +82,6 @@
       letter-spacing: .2px;
       pointer-events: none;
     }
-    .chart-label.peak{ top: 14px; right: 14px; }
     .chart-label.avg{ bottom: 14px; left: 14px; }
   </style>
 </head>
@@ -150,6 +91,66 @@
     <p class="muted">ダッシュボードのメトリクスに時間軸を追加したイメージのサンプルです。</p>
   </header>
   <main>
+    <!-- もともとあったカード型チャート群を復元 -->
+    <section class="grid" style="margin-top:32px;">
+      <div class="card">
+        <h2>稼働率</h2>
+        <div class="chart-card">
+          <span class="chart-label peak">Peak 99.99%</span>
+          <span class="chart-label avg">Avg 99.95%</span>
+          <svg viewBox="0 0 240 140" aria-hidden="true">
+            <polyline class="chart-grid" points="0,20 240,20" />
+            <polyline class="chart-grid" points="0,70 240,70" />
+            <polyline class="chart-grid" points="0,120 240,120" />
+            <polygon class="chart-fill" points="0,120 20,118 40,116 60,118 80,115 100,110 120,112 140,108 160,104 180,108 200,102 220,106 240,100 240,140 0,140" />
+            <polyline class="chart-line" points="0,120 20,118 40,116 60,118 80,115 100,110 120,112 140,108 160,104 180,108 200,102 220,106 240,100" />
+          </svg>
+        </div>
+      </div>
+      <div class="card">
+        <h2>アラート</h2>
+        <div class="chart-card">
+          <span class="chart-label peak">Peak 9 / h</span>
+          <span class="chart-label avg">Avg 3 / h</span>
+          <svg viewBox="0 0 240 140" aria-hidden="true">
+            <polyline class="chart-grid" points="0,20 240,20" />
+            <polyline class="chart-grid" points="0,70 240,70" />
+            <polyline class="chart-grid" points="0,120 240,120" />
+            <polygon class="chart-fill" points="0,120 20,112 40,120 60,110 80,98 100,120 120,92 140,100 160,80 180,118 200,90 220,108 240,96 240,140 0,140" />
+            <polyline class="chart-line" points="0,120 20,112 40,120 60,110 80,98 100,120 120,92 140,100 160,80 180,118 200,90 220,108 240,96" />
+          </svg>
+        </div>
+      </div>
+      <div class="card">
+        <h2>遅延</h2>
+        <div class="chart-card">
+          <span class="chart-label peak">Peak 64 ms</span>
+          <span class="chart-label avg">Avg 31 ms</span>
+          <svg viewBox="0 0 240 140" aria-hidden="true">
+            <polyline class="chart-grid" points="0,20 240,20" />
+            <polyline class="chart-grid" points="0,70 240,70" />
+            <polyline class="chart-grid" points="0,120 240,120" />
+            <polygon class="chart-fill" points="0,120 20,112 40,100 60,110 80,96 100,86 120,92 140,70 160,76 180,86 200,78 220,90 240,84 240,140 0,140" />
+            <polyline class="chart-line" points="0,120 20,112 40,100 60,110 80,96 100,86 120,92 140,70 160,76 180,86 200,78 220,90 240,84" />
+          </svg>
+        </div>
+      </div>
+      <div class="card">
+        <h2>スループット</h2>
+        <div class="chart-card">
+          <span class="chart-label peak">Peak 2.4 Gbps</span>
+          <span class="chart-label avg">Avg 1.8 Gbps</span>
+          <svg viewBox="0 0 240 140" aria-hidden="true">
+            <polyline class="chart-grid" points="0,20 240,20" />
+            <polyline class="chart-grid" points="0,70 240,70" />
+            <polyline class="chart-grid" points="0,120 240,120" />
+            <polygon class="chart-fill" points="0,120 20,106 40,98 60,104 80,92 100,76 120,84 140,66 160,72 180,60 200,68 220,56 240,64 240,140 0,140" />
+            <polyline class="chart-line" points="0,120 20,106 40,98 60,104 80,92 100,76 120,84 140,66 160,72 180,60 200,68 220,56 240,64" />
+          </svg>
+        </div>
+      </div>
+    </section>
+    
     <!-- インタラクティブフィルタ（サンプル） -->
     <section style="margin-bottom: 24px;">
       <form id="filterForm" style="display: flex; gap: 12px; align-items: center;">
@@ -309,5 +310,6 @@
     </script>
     </section>
   </main>
+<script src="/sw-register.js" async></script>
 </body>
 </html>

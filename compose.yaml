@@ -23,6 +23,7 @@ services:
       - ./config/httpd/dynamic-proxy.conf:/etc/httpd/conf.d/dynamic-proxy.conf:ro
       - ./config/httpd/dynamic-proxy-https.conf:/etc/httpd/conf.d/dynamic-proxy-https.conf:ro
       - ./config/httpd/zabbix.conf:/etc/httpd/conf.d/zabbix.conf:ro
+      - ./config/tls:/etc/httpd/tls:ro
     environment:
       - TZ=Asia/Tokyo
     restart: unless-stopped
