@@ -1,6 +1,9 @@
 #!/bin/bash
 # Dynamic Proxy Demo Script
 
+# apachectlラッパーの実行権限付与
+chmod +x ./apachectl || true
+
 echo "=== Dynamic Proxy Demo ==="
 echo ""
 

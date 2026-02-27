@@ -23,7 +23,7 @@ func main() {
 	dnsPort := flag.Int("dns-port", 53, "Port to listen on for DNS")
 	dnsServer := flag.String("dns", "8.8.8.8:53", "Upstream DNS server")
 	frontIP := flag.String("front-ip", "127.0.0.1", "Front httpd IP for DNS answers")
-	logFile := flag.String("logfile", "/var/log/api/dynamic-proxy.log", "Log file path")
+	logFile := flag.String("logfile", "./dynamic-proxy.log", "Log file path")
 	flag.Parse()
 
 	// ログファイルを開く（追記モード）
@@ -42,7 +42,7 @@ func main() {
 	resolver := doh.NewResolver(*dnsServer)
 
 	// TLSマネージャーの初期化（CA証明書の自動生成）
-	tlsManager, err := tls.NewManager("config/tls")
+	tlsManager, err := tls.NewManager("/etc/httpd/tls")
 	if err != nil {
 		log.Fatalf("Failed to initialize TLS manager: %v", err)
 	}
@@ -53,7 +53,7 @@ func main() {
 	}
 
 	// httpd設定マネージャーの初期化
-	httpdManager := httpd.NewManager()
+	httpdManager := httpd.NewManagerWithConfig("config/httpd/dynamic-proxy.conf", nil)
 	httpdManager.SetTLSManager(tlsManager)
 
 	// 管理対象ホストは設定されたIPで応答、管理外はアップストリームに転送

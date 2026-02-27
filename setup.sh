@@ -39,6 +39,9 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+# apachectlラッパーの実行権限付与
+chmod +x ./apachectl || true
+
 echo ""
 echo "=== Setup Complete ==="
 echo ""

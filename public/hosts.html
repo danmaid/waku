@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ホスト管理</title>
+  <script src="/sw-register.js" async></script>
+  <style>
+    body { background: #0b0f17; color: #e6edf3; font-family: system-ui; margin: 0; }
+    h1 { margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #181c24; }
+    th, td { padding: 8px 12px; border: 1px solid #333; }
+    th { background: #232a36; }
+    tr:nth-child(even) { background: #22262e; }
+    button { padding: 4px 10px; margin: 0 2px; border-radius: 4px; border: none; background: #8be9fd; color: #222; cursor: pointer; }
+    button.delete { background: #ff5555; color: #fff; }
+    button.edit { background: #f1fa8c; color: #222; }
+    .form-row { margin: 12px 0; }
+    input, select { padding: 4px 8px; border-radius: 4px; border: 1px solid #444; background: #232a36; color: #e6edf3; }
+  </style>
+</head>
+<body>
+  <h1>ホスト管理</h1>
+  <div id="hostForm" class="form-row">
+    <input type="text" id="name" placeholder="ホスト名" />
+    <input type="text" id="ip" placeholder="IPアドレス" />
+    <button id="addBtn">追加</button>
+  </div>
+  <table id="hostsTable">
+    <thead>
+      <tr><th>ID</th><th>ホスト名</th><th>IPアドレス</th><th>操作</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>
+    async function fetchHosts() {
+      const res = await fetch('/v1/hosts');
+      return res.ok ? await res.json() : [];
+    }
+    async function addHost(name, ip) {
+      const res = await fetch('/v1/hosts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, ip })
+      });
+      return res.ok ? await res.json() : null;
+    }
+    async function updateHost(id, name, ip) {
+      const res = await fetch(`/v1/hosts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, ip })
+      });
+      return res.ok ? await res.json() : null;
+    }
+    async function deleteHost(id) {
+      const res = await fetch(`/v1/hosts/${id}`, { method: 'DELETE' });
+      return res.ok;
+    }
+    function renderTable(hosts) {
+      const tbody = document.querySelector('#hostsTable tbody');
+      tbody.innerHTML = '';
+      hosts.forEach(host => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${host.id}</td><td>${host.name}</td><td>${host.ip}</td><td></td>`;
+        const ops = document.createElement('td');
+        // 編集ボタン
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '編集';
+        editBtn.className = 'edit';
+        editBtn.onclick = () => {
+          document.getElementById('name').value = host.name;
+          document.getElementById('ip').value = host.ip;
+          document.getElementById('addBtn').textContent = '更新';
+          document.getElementById('addBtn').dataset.editId = host.id;
+        };
+        // 削除ボタン
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '削除';
+        delBtn.className = 'delete';
+        delBtn.onclick = async () => {
+          if (confirm('削除しますか？')) {
+            await deleteHost(host.id);
+            loadHosts();
+          }
+        };
+        ops.appendChild(editBtn);
+        ops.appendChild(delBtn);
+        tr.appendChild(ops);
+        tbody.appendChild(tr);
+      });
+    }
+    async function loadHosts() {
+      const hosts = await fetchHosts();
+      renderTable(hosts);
+    }
+    document.getElementById('addBtn').onclick = async () => {
+      const name = document.getElementById('name').value;
+      const ip = document.getElementById('ip').value;
+      const editId = document.getElementById('addBtn').dataset.editId;
+      if (editId) {
+        await updateHost(editId, name, ip);
+        document.getElementById('addBtn').textContent = '追加';
+        delete document.getElementById('addBtn').dataset.editId;
+      } else {
+        await addHost(name, ip);
+      }
+      document.getElementById('name').value = '';
+      document.getElementById('ip').value = '';
+      loadHosts();
+    };
+    loadHosts();
+  </script>
+</body>
+</html>

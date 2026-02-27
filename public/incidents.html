@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>障害情報一覧</title>
+  <title>障害なう</title>
   <script src="/sw-register.js" async></script>
   <style>
     :root {
@@ -56,10 +56,14 @@
 <body>
   <div class="scroll-table" style="height: 90vh;">
     <table id="incident-table">
-      <caption>障害情報一覧</caption>
+      <caption>障害なう</caption>
       <thead>
         <tr id="incident-header-row">
-          <th>読み込み中...</th>
+          <th>ID</th>
+          <th>日時</th>
+          <th>タイトル</th>
+          <th>ホストID</th>
+          <th>ホスト登録名</th>
         </tr>
       </thead>
       <tbody>
@@ -93,7 +97,7 @@
           keys = keys.filter(k => k !== 'hosts');
           keys.push('hostid', 'host');
         }
-        theadRow.innerHTML = keys.map(k => `<th>${k}</th>`).join('');
+        // theadRow.innerHTML = keys.map(k => `<th>${k}</th>`).join('');
         // データ行生成
         data.forEach(item => {
           if (Array.isArray(item.hosts) && item.hosts.length > 0) {

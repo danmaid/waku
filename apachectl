@@ -1,0 +1,14 @@
+#!/bin/sh
+# Project-local apachectl wrapper for dynamic-proxy
+# This script is called by dynamic-proxy to reload httpd in a container environment.
+
+# You can customize this command as needed for your environment.
+# By default, it restarts the httpd service in the docker compose environment.
+
+set -e
+
+# Print info
+>&2 echo "[apachectl wrapper] docker compose restart httpd ..."
+
+# Restart httpd container
+exec docker compose restart httpd

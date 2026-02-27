@@ -268,3 +268,25 @@ sudo journalctl -xeu httpd
 ## ライセンス
 
 MIT
+
+## コンテナ環境での httpd リロードについて
+
+このプロジェクトでは、`dynamic-proxy` が httpd 設定変更後に `apachectl` コマンドを呼び出して httpd のリロードを試みます。
+
+### コンテナ環境でのリロード方法
+
+- 通常の Linux サーバでは `apachectl graceful` などでリロードできますが、Docker Compose 環境では直接コマンドが使えません。
+- そのため、プロジェクト直下に `apachectl` というラッパースクリプトを用意しています。
+- このスクリプトは `docker compose restart httpd` を実行し、httpd コンテナを再起動します。
+- dynamic-proxy のコードを変更せず、コンテナ環境でも自動的にリロードが反映されます。
+
+### 使い方
+
+1. `dynamic-proxy` を devcontainer などで起動する前に、プロジェクト直下の `apachectl` に実行権限があることを確認してください。
+
+    ```sh
+    chmod +x ./apachectl
+    export PATH="$(pwd):$PATH"
+    ```
+
+2. これで dynamic-proxy からの httpd リロード要求が自動的にコンテナ再起動に変換されます。

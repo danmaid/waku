@@ -687,12 +687,10 @@
         { id: 'search', label: '検索', icon: 'search', url: 'https://www.bing.com' },
       ],
       bottom: [
-        { id: 'back', label: '戻る', icon: 'back', action: 'back' },
-        { id: 'forward', label: '進む', icon: 'forward', action: 'forward' },
-        { id: 'info', label: 'ヘルプ', icon: 'info', url: 'data:text/html;charset=utf-8,' + encodeURIComponent(`<body style="margin:0;background:#0b0f17;color:#e6edf3;font-family:system-ui;"><div style="padding:18px;"><h2>Help</h2><p>auto-hide中は、画面端にマウスを寄せた「その辺」だけが出ます。</p></div></body>`) },
+        { id: 'info', label: 'ホスト管理', icon: 'info', url: '/hosts.html' },
       ],
       left: [
-        { id: 'fav', title: 'ダッシュボード', icon: 'star', url: '/dashboard.html' },
+        { id: 'fav', title: 'SD-WAN Manager', icon: 'star', url: 'https://manager.sdwan.danmaid.com/' },
         { id: 'mail', title: 'Catalyst Center', icon: 'mail', url: 'https://catc.danmaid:8443' },
         { id: 'zabbix', title: 'Zabbix', icon: 'docs', url: '/zabbix/' },
         { id: 'ssh', title: 'SSH', icon: 'forward', url: '/v1/ssh/' },
@@ -706,7 +704,13 @@
         { id: 'sample3', title: 'サンプルC', icon: 'search', url: '/honeycomb.html' },
       ],
       bottomRight: [
-        { id: 'settings', label: '設定', icon: 'info', url: '/v1/proxy/' },
+        {
+          id: 'settings',
+          label: '設定',
+          icon: 'info',
+          url: '/v1/proxy/',
+          badgeStatusUrl: '/.well-known/proxy-status'
+        },
       ],
       right: [
         { id: 'orchestrator', title: 'オーケストレータ', icon: 'info', url: '/v1/orchestrator/' },
@@ -804,24 +808,34 @@
     }
 
     function navigate(item) {
-      if (item.action === 'back') {
-        const frame = activeId ? frames.get(activeId) : null;
-        if (frame) try { frame.contentWindow.history.back(); } catch (e) { }
-        setStatus('Back');
-        return;
-      }
-      if (item.action === 'forward') {
-        const frame = activeId ? frames.get(activeId) : null;
-        if (frame) try { frame.contentWindow.history.forward(); } catch (e) { }
-        setStatus('Forward');
-        return;
-      }
       if (item.url) {
         ensureFrame(item);
       }
     }
 
-    function makeTopBottomButton(item) {
+    // --- Footer専用: iframe永続化しないnavigate ---
+    function navigateBottom(item) {
+      if (item.url) {
+        // iframeを永続化せず、一時的に表示（既存のiframeを使い回す）
+        let frame = frames.get('__footer_temp__');
+        if (!frame) {
+          frame = document.createElement('iframe');
+          frame.className = 'view-frame';
+          frame.title = item.label || item.title || item.id;
+          frame.dataset.frameId = '__footer_temp__';
+          viewContainer.appendChild(frame);
+          frames.set('__footer_temp__', frame);
+        }
+        // 他のiframeは非表示
+        frames.forEach((f, key) => f.classList.toggle('is-active', key === '__footer_temp__'));
+        activeId = '__footer_temp__';
+        setActive(null); // footerボタンは選択状態にしない
+        frame.src = item.url;
+        setStatus(item.label || item.title || item.url);
+      }
+    }
+
+    function makeTopBottomButton(item, isFooter = false) {
       const btn = document.createElement('button');
       btn.className = 'navbtn';
       btn.type = 'button';
@@ -829,7 +843,38 @@
       btn.title = item.label;
       btn.innerHTML = `<span class="ic" aria-hidden="true">${svg(item.icon)}</span><span class="label"></span>`;
       btn.querySelector('.label').textContent = item.label;
-      if (item.url) {
+
+      // --- バッジ付き設定ボタン ---
+      if (item.badgeStatusUrl) {
+        const badge = document.createElement('span');
+        badge.className = 'badge is-hidden';
+        badge.id = 'settingsBadge';
+        badge.textContent = '!';
+        badge.setAttribute('aria-label', 'プロキシ状態');
+        btn.appendChild(badge);
+
+        function updateSettingsBadge() {
+          fetch(item.badgeStatusUrl, {cache: 'no-store'})
+            .then(r => r.ok ? r.json() : Promise.reject(r))
+            .then(data => {
+              if (data && data.status === 'ok') {
+                badge.classList.add('is-hidden');
+              } else {
+                badge.classList.remove('is-hidden');
+                badge.textContent = '!';
+                badge.title = data && data.reason ? data.reason : 'プロキシ状態に警告';
+              }
+            })
+            .catch(e => {
+              badge.classList.remove('is-hidden');
+              badge.textContent = '!';
+              badge.title = 'プロキシ状態取得失敗';
+            });
+        }
+        updateSettingsBadge();
+      }
+
+      if (item.url && !isFooter) {
         const close = document.createElement('button');
         close.className = 'closebtn';
         close.type = 'button';
@@ -842,18 +887,23 @@
         });
         btn.appendChild(close);
       }
-      btn.addEventListener('click', () => navigate(item));
-      btn.addEventListener('dblclick', () => {
-        if (!item.url) return;
-        const frame = frames.get(item.id);
-        if (frame) {
-          frame.src = item.url;
-          showFrame(item.id);
-          setStatus(item.label || item.title || item.url);
-        } else {
-          ensureFrame(item);
-        }
-      });
+      if (isFooter) {
+        btn.addEventListener('click', () => navigateBottom(item));
+        btn.addEventListener('dblclick', () => navigateBottom(item));
+      } else {
+        btn.addEventListener('click', () => navigate(item));
+        btn.addEventListener('dblclick', () => {
+          if (!item.url) return;
+          const frame = frames.get(item.id);
+          if (frame) {
+            frame.src = item.url;
+            showFrame(item.id);
+            setStatus(item.label || item.title || item.url);
+          } else {
+            ensureFrame(item);
+          }
+        });
+      }
       return btn;
     }
 
@@ -919,14 +969,14 @@
       registerNav(NAV.right);
 
       NAV.top.forEach(i => top.appendChild(makeTopBottomButton(i)));
-      NAV.bottom.forEach(i => bottom.appendChild(makeTopBottomButton(i)));
+      NAV.bottom.forEach(i => bottom.appendChild(makeTopBottomButton(i, true)));
       NAV.leftExtra.forEach(i => left.appendChild(makeCircleButton(i)));
       const separator = document.createElement('div');
       separator.className = 'side-separator';
       separator.setAttribute('aria-hidden', 'true');
       left.appendChild(separator);
       NAV.left.forEach(i => left.appendChild(makeCircleButton(i)));
-      NAV.bottomRight.forEach(i => bottomRight.appendChild(makeTopBottomButton(i)));
+      NAV.bottomRight.forEach(i => bottomRight.appendChild(makeTopBottomButton(i, true)));
       NAV.right.forEach(i => right.appendChild(makeCircleButton(i)));
 
       navigate(NAV.top[0]);
@@ -1048,6 +1098,7 @@
     }
 
 
+
     render();
     updateMdnBadge();
     connectSSE();
@@ -1058,6 +1109,8 @@
     window.addEventListener('timerangechange', (e) => {
       console.log('Time range changed:', e.detail);
     });
+
+
   </script>
 </body>
 

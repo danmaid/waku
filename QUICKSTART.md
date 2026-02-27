@@ -202,3 +202,9 @@ curl http://localhost:6002/v1/proxy/myapp.local
 - [README.md](README.md) - 完全なドキュメント
 - `demo.sh` を実行してデモを見る
 - Apache httpdをフロントに配置する（本番環境向け）
+
+## コンテナ環境での httpd リロード
+
+- プロジェクト直下の `apachectl` スクリプトが `docker compose restart httpd` を実行します。
+- dynamic-proxy の httpd リロード要求が自動的にコンテナ再起動に変換されます。
+- 必要に応じて `chmod +x ./apachectl` と `export PATH="$(pwd):$PATH"` を実行してください。

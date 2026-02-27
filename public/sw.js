@@ -1,13 +1,28 @@
-const ZABBIX_API_URL = '/zabbix/api_jsonrpc.php';
-self.addEventListener('install', (event) => self.skipWaiting());
+self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.pathname === '/v1/incidents' && event.request.method === 'GET') {
+  if (url.pathname === '/v1/incidents') {
     return event.respondWith(handleIncidents());
   }
+  if (url.pathname === '/v1/hosts') {
+    return event.respondWith(handleHosts());
+  }
 });
+// /v1/hosts: Zabbix host.get の result を返す
+async function handleHosts() {
+  const hostsResp = await zabbixApiRequest('host.get', {
+    output: ['hostid', 'host', 'name', 'status', 'ip'],
+  });
+  const hosts = hostsResp.result || [];
+  return new Response(JSON.stringify(hosts), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
 
+const ZABBIX_API_URL = '/zabbix/api_jsonrpc.php';
 async function handleIncidents() {
   // problem.getでeventid一覧のみ取得
   const problemsResp = await zabbixApiRequest('problem.get', {

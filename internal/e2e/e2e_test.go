@@ -522,8 +522,9 @@ func TestE2E_ManualConfigReload(t *testing.T) {
 	}
 
 	// 3) loadConfig() で手編集を取り込む
-	if err := manager.LoadConfig(); err != nil {
-		t.Fatalf("failed to reload config: %v", err)
+	_, err := manager.ParseConfigFile()
+	if err != nil {
+		t.Fatalf("failed to parse config: %v", err)
 	}
 
 	// 4) 両方のホストが存在することを確認

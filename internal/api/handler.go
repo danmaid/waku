@@ -15,6 +15,16 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// findConfigByHost はconfigsスライスからホスト名で検索して該当設定を返す
+func findConfigByHost(configs []*httpd.ProxyConfig, host string) *httpd.ProxyConfig {
+	for _, cfg := range configs {
+		if cfg.Host == host {
+			return cfg
+		}
+	}
+	return nil
+}
+
 // Handler はREST APIハンドラー
 type Handler struct {
 	httpdManager *httpd.Manager
@@ -55,9 +65,12 @@ func (h *Handler) ListProxies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// JSON APIレスポンス
-	configs := h.httpdManager.ListProxies()
-
+	// JSON APIレスポンス（毎回ファイルパース）
+	configs, err := h.httpdManager.ParseConfigFile()
+	if err != nil {
+		http.Error(w, "Failed to parse proxy config file", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"proxies": configs,
@@ -71,14 +84,24 @@ func (h *Handler) GetProxy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	host := vars["host"]
 
-	config, err := h.httpdManager.GetProxy(host)
+	configs, err := h.httpdManager.ParseConfigFile()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, "Failed to parse proxy config file", http.StatusInternalServerError)
 		return
 	}
-
+	var found *httpd.ProxyConfig
+	for _, cfg := range configs {
+		if cfg.Host == host {
+			found = cfg
+			break
+		}
+	}
+	if found == nil {
+		http.Error(w, "proxy not found", http.StatusNotFound)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(config)
+	json.NewEncoder(w).Encode(found)
 }
 
 // CreateProxy は新しいプロキシ設定を作成
@@ -86,7 +109,6 @@ func (h *Handler) GetProxy(w http.ResponseWriter, r *http.Request) {
 // Body: {"host": "example.com", "backend": "http://localhost:3000", "description": "Example service"}
 func (h *Handler) CreateProxy(w http.ResponseWriter, r *http.Request) {
 	var config httpd.ProxyConfig
-
 	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -103,17 +125,24 @@ func (h *Handler) CreateProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 既存の設定チェック
-	if _, err := h.httpdManager.GetProxy(config.Host); err == nil {
-		http.Error(w, "Proxy already exists for this host", http.StatusConflict)
+	// 設定ファイルから既存設定を取得
+	configs, err := h.httpdManager.ParseConfigFile()
+	if err != nil {
+		http.Error(w, "Failed to parse proxy config file", http.StatusInternalServerError)
 		return
 	}
-
-	if err := h.httpdManager.AddProxy(&config); err != nil {
+	for _, cfg := range configs {
+		if cfg.Host == config.Host {
+			http.Error(w, "Proxy already exists for this host", http.StatusConflict)
+			return
+		}
+	}
+	// 追加
+	configs = append(configs, &config)
+	if err := h.httpdManager.WriteConfigFile(configs); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -129,39 +158,40 @@ func (h *Handler) UpdateProxy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	host := vars["host"]
 
-	// 既存の設定を確認
-	if _, err := h.httpdManager.GetProxy(host); err != nil {
-		http.Error(w, "Proxy not found", http.StatusNotFound)
+	configs, err := h.httpdManager.ParseConfigFile()
+	if err != nil {
+		http.Error(w, "Failed to parse proxy config file", http.StatusInternalServerError)
 		return
 	}
-
 	var config httpd.ProxyConfig
 	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
-
-	// ホスト名を維持
 	config.Host = host
-
-	// backendが指定されていない場合はエラー
 	if config.Backend == "" {
 		http.Error(w, "Missing required field: backend", http.StatusBadRequest)
 		return
 	}
-
-	// 一旦削除して再追加
-	if err := h.httpdManager.RemoveProxy(host); err != nil {
+	found := false
+	var newConfigs []*httpd.ProxyConfig
+	for _, cfg := range configs {
+		if cfg.Host == host {
+			newConfigs = append(newConfigs, &config)
+			found = true
+		} else {
+			newConfigs = append(newConfigs, cfg)
+		}
+	}
+	if !found {
+		http.Error(w, "Proxy not found", http.StatusNotFound)
+		return
+	}
+	if err := h.httpdManager.WriteConfigFile(newConfigs); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	if err := h.httpdManager.AddProxy(&config); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Proxy updated successfully",
@@ -175,11 +205,28 @@ func (h *Handler) DeleteProxy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	host := vars["host"]
 
-	if err := h.httpdManager.RemoveProxy(host); err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+	configs, err := h.httpdManager.ParseConfigFile()
+	if err != nil {
+		http.Error(w, "Failed to parse proxy config file", http.StatusInternalServerError)
 		return
 	}
-
+	found := false
+	var newConfigs []*httpd.ProxyConfig
+	for _, cfg := range configs {
+		if cfg.Host == host {
+			found = true
+			continue
+		}
+		newConfigs = append(newConfigs, cfg)
+	}
+	if !found {
+		http.Error(w, "Proxy not found", http.StatusNotFound)
+		return
+	}
+	if err := h.httpdManager.WriteConfigFile(newConfigs); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Proxy deleted successfully",
@@ -246,12 +293,16 @@ func (h *Handler) AnalyzeBackendCSP(w http.ResponseWriter, r *http.Request) {
 	host := vars["host"]
 
 	// 既存の設定を確認
-	config, err := h.httpdManager.GetProxy(host)
+	configs, err := h.httpdManager.ParseConfigFile()
 	if err != nil {
+		http.Error(w, "Failed to parse proxy config file", http.StatusInternalServerError)
+		return
+	}
+	config := findConfigByHost(configs, host)
+	if config == nil {
 		http.Error(w, "Proxy not found", http.StatusNotFound)
 		return
 	}
-
 	if config.Backend == "" {
 		http.Error(w, "Backend URL not configured", http.StatusBadRequest)
 		return

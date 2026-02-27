@@ -13,6 +13,101 @@ import (
 	tlsmgr "github.com/danmaid/dynamic-proxy/internal/tls"
 )
 
+// GetDNSAddress returns the DNS address for the given host, if configured.
+func (m *Manager) GetDNSAddress(host string) (string, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	configs, err := m.ParseConfigFile()
+	if err != nil {
+		return "", false
+	}
+	cfg := findConfigByHost(configs, host)
+	if cfg != nil && cfg.DNSAddress != "" {
+		return cfg.DNSAddress, true
+	}
+	return "", false
+}
+
+// HasHost returns true if the given host exists in the config file.
+func (m *Manager) HasHost(host string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	configs, err := m.ParseConfigFile()
+	if err != nil {
+		return false
+	}
+	return findConfigByHost(configs, host) != nil
+}
+
+// findConfigByHost はconfigsスライスからホスト名で検索して該当設定を返す
+func findConfigByHost(configs []*ProxyConfig, host string) *ProxyConfig {
+	for _, cfg := range configs {
+		if cfg.Host == host {
+			return cfg
+		}
+	}
+	return nil
+}
+
+// WriteConfigFile はProxyConfigスライスからhttpd設定ファイルを書き出す
+func (m *Manager) WriteConfigFile(configs []*ProxyConfig) error {
+	var sb strings.Builder
+	sb.WriteString("# Apache httpd configuration for Dynamic Proxy (HTTPS)\n")
+	sb.WriteString("# This file can be edited manually by administrators\n")
+	sb.WriteString("# Changes will be read on next application startup or reload\n")
+	sb.WriteString("# NOTE: Update SSLCertificateFile/Key if needed.\n\n")
+
+	for _, config := range configs {
+		if config.Description != "" {
+			sb.WriteString(fmt.Sprintf("# %s\n", config.Description))
+		}
+		if config.DNSAddress != "" {
+			sb.WriteString(fmt.Sprintf("# DNS: %s\n", config.DNSAddress))
+		}
+		sb.WriteString("<VirtualHost *:8443>\n")
+		sb.WriteString(fmt.Sprintf("    ServerName %s\n", config.Host))
+		sb.WriteString("    \n")
+		sb.WriteString("    SSLEngine on\n")
+		if m.tlsManager != nil {
+			sb.WriteString(fmt.Sprintf("    SSLCertificateFile %s\n", m.tlsManager.GetCertPath(config.Host)))
+			sb.WriteString(fmt.Sprintf("    SSLCertificateKeyFile %s\n", m.tlsManager.GetKeyPath(config.Host)))
+		} else {
+			sb.WriteString("    SSLCertificateFile /etc/httpd/tls/localhost.crt\n")
+			sb.WriteString("    SSLCertificateKeyFile /etc/httpd/tls/localhost.key\n")
+		}
+		sb.WriteString("    \n")
+		sb.WriteString("    # HTTPSバックエンド対応\n")
+		sb.WriteString("    SSLProxyEngine On\n")
+		sb.WriteString("    SSLProxyVerify none\n")
+		sb.WriteString("    SSLProxyCheckPeerCN off\n")
+		sb.WriteString("    SSLProxyCheckPeerName off\n")
+		sb.WriteString("    SSLProxyProtocol all -SSLv3\n")
+		sb.WriteString("    \n")
+		if strings.TrimSpace(config.CSPPolicy) != "" {
+			policy := escapeCSPPolicy(strings.TrimSpace(config.CSPPolicy))
+			sb.WriteString("    # CSP override for iframe integration\n")
+			sb.WriteString("    <Location />\n")
+			sb.WriteString("        Header unset X-Frame-Options\n")
+			sb.WriteString("        Header unset Content-Security-Policy\n")
+			sb.WriteString(fmt.Sprintf("        Header set Content-Security-Policy \"%s\"\n", policy))
+			sb.WriteString("    </Location>\n")
+			sb.WriteString("    \n")
+		}
+		sb.WriteString("    ProxyPreserveHost Off\n")
+		sb.WriteString(fmt.Sprintf("    ProxyPass / %s/ disablereuse=on\n", config.Backend))
+		sb.WriteString(fmt.Sprintf("    ProxyPassReverse / %s/\n", config.Backend))
+		sb.WriteString("    \n")
+		sb.WriteString(fmt.Sprintf("    ErrorLog /var/log/httpd/%s_error.log\n", sanitizeHost(config.Host)))
+		sb.WriteString(fmt.Sprintf("    CustomLog /var/log/httpd/%s_access.log combined\n", sanitizeHost(config.Host)))
+		sb.WriteString("</VirtualHost>\n\n")
+	}
+	configContent := []byte(sb.String())
+	if err := os.WriteFile(m.httpdConf, configContent, 0644); err != nil {
+		return fmt.Errorf("failed to write httpd config: %w", err)
+	}
+	return nil
+}
+
 // ProxyConfig は単一のプロキシ設定
 type ProxyConfig struct {
 	Host        string `json:"host"`        // バーチャルホスト名
@@ -24,7 +119,6 @@ type ProxyConfig struct {
 
 // Manager はhttpd設定管理マネージャー
 type Manager struct {
-	configs    map[string]*ProxyConfig
 	mu         sync.RWMutex
 	httpdConf  string // httpd設定ファイル（単一の真実の源）
 	reloadFunc func() error
@@ -39,25 +133,18 @@ func NewManager() *Manager {
 // NewManagerWithConfig はテスト用途などで設定ファイルを指定して作成
 func NewManagerWithConfig(httpdConf string, reloadFunc func() error) *Manager {
 	m := &Manager{
-		configs:    make(map[string]*ProxyConfig),
 		httpdConf:  httpdConf,
 		reloadFunc: reloadFunc,
 	}
 	if m.reloadFunc == nil {
 		m.reloadFunc = m.reloadHttpd
 	}
-
-	// httpd設定ファイルから設定を読み込み
-	if err := m.LoadConfig(); err != nil {
-		log.Printf("Warning: Failed to load httpd config: %v", err)
-		// 設定ファイルが存在しない場合は初期状態で生成
-		if os.IsNotExist(err) {
-			if err := m.generateHttpdConfig(); err != nil {
-				log.Printf("Warning: Failed to generate initial httpd config: %v", err)
-			}
+	// 設定ファイルがなければ初期化だけ行う
+	if _, err := os.Stat(httpdConf); os.IsNotExist(err) {
+		if err := os.WriteFile(httpdConf, []byte("# Dynamic Proxy - Managed Virtual Host Configurations\n"), 0644); err != nil {
+			log.Printf("Warning: Failed to generate initial httpd config: %v", err)
 		}
 	}
-
 	return m
 }
 
@@ -68,131 +155,26 @@ func (m *Manager) SetTLSManager(tlsManager *tlsmgr.Manager) {
 	m.tlsManager = tlsManager
 
 	// 既存のすべてのホストに対して証明書を生成
-	for host := range m.configs {
-		if err := tlsManager.GenerateServerCert(host); err != nil {
-			log.Printf("Warning: Failed to generate certificate for %s: %v", host, err)
+	configs, err := m.ParseConfigFile()
+	if err != nil {
+		log.Printf("Warning: Failed to parse config file for TLS setup: %v", err)
+		return
+	}
+	for _, cfg := range configs {
+		if err := tlsManager.GenerateServerCert(cfg.Host); err != nil {
+			log.Printf("Warning: Failed to generate certificate for %s: %v", cfg.Host, err)
 		}
 	}
 }
 
-// AddProxy はプロキシ設定を追加し、httpd設定を更新
-func (m *Manager) AddProxy(config *ProxyConfig) error {
-	m.mu.Lock()
-	m.configs[config.Host] = config
-	m.mu.Unlock()
-
-	// TLS証明書を生成
-	if m.tlsManager != nil {
-		if err := m.tlsManager.GenerateServerCert(config.Host); err != nil {
-			log.Printf("Warning: Failed to generate certificate for %s: %v", config.Host, err)
-		}
-	}
-
-	// httpd設定を生成（単一の真実の源）
-	if err := m.generateHttpdConfig(); err != nil {
-		return fmt.Errorf("failed to generate httpd config: %w", err)
-	}
-
-	// httpdをリロード
-	if err := m.reloadFunc(); err != nil {
-		log.Printf("Warning: Failed to reload httpd: %v", err)
-	}
-
-	log.Printf("Added proxy: %s -> %s", config.Host, config.Backend)
-	return nil
-}
-
-// RemoveProxy はプロキシ設定を削除し、httpd設定を更新
-func (m *Manager) RemoveProxy(host string) error {
-	m.mu.Lock()
-	if _, ok := m.configs[host]; !ok {
-		m.mu.Unlock()
-		return fmt.Errorf("proxy not found: %s", host)
-	}
-	delete(m.configs, host)
-	m.mu.Unlock()
-
-	// TLS証明書を削除
-	if m.tlsManager != nil {
-		if err := m.tlsManager.DeleteServerCert(host); err != nil {
-			log.Printf("Warning: Failed to delete certificate for %s: %v", host, err)
-		}
-	}
-
-	// httpd設定を生成（単一の真実の源）
-	if err := m.generateHttpdConfig(); err != nil {
-		return fmt.Errorf("failed to generate httpd config: %w", err)
-	}
-
-	// httpdをリロード
-	if err := m.reloadFunc(); err != nil {
-		log.Printf("Warning: Failed to reload httpd: %v", err)
-	}
-
-	log.Printf("Removed proxy: %s", host)
-	return nil
-}
-
-// GetProxy は指定されたホストのプロキシ設定を取得
-func (m *Manager) GetProxy(host string) (*ProxyConfig, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	config, ok := m.configs[host]
-	if !ok {
-		return nil, fmt.Errorf("proxy not found: %s", host)
-	}
-
-	return config, nil
-}
-
-// HasHost は指定ホストが管理対象かを判定
-func (m *Manager) HasHost(host string) bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	_, ok := m.configs[host]
-	return ok
-}
-
-// GetDNSAddress は指定ホストのDNS応答IPアドレスを取得
-func (m *Manager) GetDNSAddress(host string) (string, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	config, ok := m.configs[host]
-	if !ok || config.DNSAddress == "" {
-		return "", false
-	}
-	return config.DNSAddress, true
-}
-
-func (m *Manager) ListProxies() []*ProxyConfig {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	configs := make([]*ProxyConfig, 0, len(m.configs))
-	for _, config := range m.configs {
-		configs = append(configs, config)
-	}
-
-	return configs
-}
-
-// LoadConfig はhttpd設定ファイルをパースして設定を読み込み
-func (m *Manager) LoadConfig() error {
+// ParseConfigFile はhttpd設定ファイルをパースしてProxyConfigのスライスを返す
+func (m *Manager) ParseConfigFile() ([]*ProxyConfig, error) {
 	data, err := os.ReadFile(m.httpdConf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// 既存の設定をクリア
-	m.configs = make(map[string]*ProxyConfig)
-
-	// httpd設定ファイルをパース
+	var configs []*ProxyConfig
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	var currentVHost *ProxyConfig
 	var inVHost bool
@@ -241,7 +223,7 @@ func (m *Manager) LoadConfig() error {
 		// VirtualHost終了
 		if strings.Contains(line, "</VirtualHost>") {
 			if currentVHost != nil && currentVHost.Host != "" && currentVHost.Backend != "" {
-				m.configs[currentVHost.Host] = currentVHost
+				configs = append(configs, currentVHost)
 			}
 			inVHost = false
 			currentVHost = nil
@@ -268,11 +250,11 @@ func (m *Manager) LoadConfig() error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading httpd config: %w", err)
+		return nil, fmt.Errorf("error reading httpd config: %w", err)
 	}
 
-	log.Printf("Loaded %d proxy configurations from %s", len(m.configs), m.httpdConf)
-	return nil
+	log.Printf("Loaded %d proxy configurations from %s", len(configs), m.httpdConf)
+	return configs, nil
 }
 
 // generateHttpdConfig はApache httpd設定ファイルを生成
@@ -282,13 +264,20 @@ func (m *Manager) generateHttpdConfig() error {
 
 	var sb strings.Builder
 
-	sb.WriteString("# Apache httpd configuration for Dynamic Proxy (HTTPS)\n")
+	configs, err := m.ParseConfigFile()
+	if err == nil && m.tlsManager != nil {
+		for _, cfg := range configs {
+			if err := m.tlsManager.GenerateServerCert(cfg.Host); err != nil {
+				log.Printf("Warning: Failed to generate certificate for %s: %v", cfg.Host, err)
+			}
+		}
+	}
 	sb.WriteString("# This file can be edited manually by administrators\n")
 	sb.WriteString("# Changes will be read on next application startup or reload\n")
 	sb.WriteString("# NOTE: Update SSLCertificateFile/Key if needed.\n\n")
 
 	// 各プロキシ設定のVirtualHostを生成
-	for _, config := range m.configs {
+	for _, config := range configs {
 		if config.Description != "" {
 			sb.WriteString(fmt.Sprintf("# %s\n", config.Description))
 		}
@@ -414,8 +403,12 @@ func (m *Manager) GetVirtualHostConfig(host string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	config, ok := m.configs[host]
-	if !ok {
+	configs, err := m.ParseConfigFile()
+	if err != nil {
+		return "", fmt.Errorf("failed to load configurations: %w", err)
+	}
+	config := findConfigByHost(configs, host)
+	if config == nil {
 		return "", fmt.Errorf("proxy not found: %s", host)
 	}
 
@@ -479,8 +472,12 @@ func (m *Manager) UpdateVirtualHostConfig(host string, configText string) error 
 	defer m.mu.Unlock()
 
 	// ホストが存在するか確認
-	config, ok := m.configs[host]
-	if !ok {
+	configs, err := m.ParseConfigFile()
+	if err != nil {
+		return fmt.Errorf("failed to load configurations: %w", err)
+	}
+	config := findConfigByHost(configs, host)
+	if config == nil {
 		return fmt.Errorf("proxy not found: %s", host)
 	}
 
@@ -520,26 +517,21 @@ func (m *Manager) UpdateVirtualHostConfig(host string, configText string) error 
 	config.Backend = backend
 	config.DNSAddress = dnsAddr
 	config.CSPPolicy = cspPolicy
-	// Description は詳細編集では変更できないので、既存値を保持
 
+	// Description は詳細編集では変更できないので、既存値を保持
 	// 全体の設定を再生成
 	m.mu.Unlock()
-	err := m.generateHttpdConfig()
+	err = m.generateHttpdConfig()
 	m.mu.Lock()
-
 	if err != nil {
 		return fmt.Errorf("failed to regenerate config: %w", err)
 	}
-
 	// 設定をテスト
 	if err := m.testHttpdConfig(); err != nil {
 		// テスト失敗時は元の設定に戻す必要があるため、LoadConfig で再度読み込み
-		m.mu.Unlock()
-		m.LoadConfig()
-		m.mu.Lock()
-		return fmt.Errorf("httpd config validation failed: %w", err)
+		// m.LoadConfig()や不要なコードを削除
+		return fmt.Errorf("failed to test httpd config: %w", err)
 	}
-
 	return nil
 }
 
