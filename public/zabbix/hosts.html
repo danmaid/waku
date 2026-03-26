@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zabbixホスト一覧</title>
+  <script async>navigator.serviceWorker.register('/sw.js', { type: 'module' })</script>
+  <script async>
+    async function load() {
+      const r = await fetch('/zabbix/hosts')
+      const hosts = await r.json()
+      render(hosts)
+    }
+
+    /** @type {(hosts: Array<{hostid: string, host: string, name: string}>) => void} */
+    function render(hosts) {
+      const tbody = document.querySelector('table tbody')
+      tbody.innerHTML = ''
+      for (const h of hosts) {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `
+          <td>${h.hostid}</td>
+          <td>${h.host}</td>
+          <td>${h.name}</td>
+          <td></td>
+        `
+        tbody.appendChild(tr)
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: #0b0f17;
+      color: #e6edf3;
+      font-family: system-ui;
+      margin: 0;
+    }
+
+    h1 {
+      margin: 16px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      background: #181c24;
+    }
+
+    th,
+    td {
+      padding: 8px 12px;
+      border: 1px solid #333;
+    }
+
+    th {
+      background: #232a36;
+    }
+
+    tr:nth-child(even) {
+      background: #22262e;
+    }
+
+    button {
+      padding: 4px 10px;
+      margin: 0 2px;
+      border-radius: 4px;
+      border: none;
+      background: #8be9fd;
+      color: #222;
+      cursor: pointer;
+    }
+
+    button.delete {
+      background: #ff5555;
+      color: #fff;
+    }
+
+    button.edit {
+      background: #f1fa8c;
+      color: #222;
+    }
+
+    .form-row {
+      margin: 12px 0;
+    }
+
+    input,
+    select {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #232a36;
+      color: #e6edf3;
+    }
+  </style>
+</head>
+
+<body>
+  <table>
+    <caption>Zabbixホスト一覧</caption>
+    <thead>
+      <tr>
+        <th>hostid</th>
+        <th>host</th>
+        <th>name</th>
+        <td><button id="loadBtn">load</button></td>
+        <script>document.getElementById('loadBtn').addEventListener('click', load)</script>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>load()</script>
+</body>
+
+</html>

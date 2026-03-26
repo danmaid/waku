@@ -23,12 +23,15 @@ export async function getHosts() {
 
 /** @type {(method: string, params?: object) => Promise<any>} */
 async function callZabbixApi(method, params = {}) {
-  const r = await fetch('/zabbix/api_jsonrpc.php', {
+  const r = await fetch('http://[2400:4052:2962:5e00:5054:ff:fe8c:e2b2]/zabbix/api_jsonrpc.php', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer 7babc36130c77e3c4e20e3fd97e57d93c58c4c298311449449235106ca40840e'
+    },
     body: JSON.stringify({ jsonrpc: '2.0', method, params, id: Date.now() })
   })
-  const d = await r.json();
-  if (d.error) throw new Error(`Zabbix API error: ${d.error.message}`)
+  const d = await r.json()
+  if (d.error) throw new Error(`Zabbix API error: ${d.error.message} ${d.error.data}`)
   return d.result
 }

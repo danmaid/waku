@@ -1,0 +1,42 @@
+[
+  {
+    "id": "1084",
+    "name": "拠点1",
+    "host": "Zabbix server3"
+  },
+  {
+    "id": "1651",
+    "name": "拠点2",
+    "host": "Zabbix server4"
+  },
+  {
+    "id": "1652",
+    "name": "拠点3",
+    "host": "XXXXXXXX"
+  },
+  {
+    "id": "1653",
+    "name": "拠点4",
+    "host": "XXXXXXXX"
+  },
+  {
+    "id": "1654",
+    "name": "拠点5",
+    "host": "XXXXXXXX"
+  },
+  {
+    "id": "1655",
+    "name": "拠点6",
+    "host": "XXXXXXXX"
+  },
+  {
+    "id": "1656",
+    "name": "拠点7",
+    "host": "XXXXXXXX"
+  },
+  {
+    "id": "1657",
+    "name": "拠点8",
+    "host": "XXXXXXXX"
+  }
+]

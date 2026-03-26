@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
   <title>Edge Dock Nav + Auto-hide (per-edge, compact, dark)</title>
-  <script src="/sw-register.js" async></script>
+  <script async>navigator.serviceWorker.register('sw.js')</script>
   <style>
     :root {
       /* --- Dark theme (固定) --- */
@@ -854,7 +854,7 @@
         btn.appendChild(badge);
 
         function updateSettingsBadge() {
-          fetch(item.badgeStatusUrl, {cache: 'no-store'})
+          fetch(item.badgeStatusUrl, { cache: 'no-store' })
             .then(r => r.ok ? r.json() : Promise.reject(r))
             .then(data => {
               if (data && data.status === 'ok') {

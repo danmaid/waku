@@ -4,11 +4,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ホスト一覧</title>
+  <title>拠点一覧</title>
   <script async>navigator.serviceWorker.register('/sw.js', { type: 'module' })</script>
   <script async>
     async function load() {
-      const r = await fetch('/v1/hosts')
+      const r = await fetch('/v1/sites')
       const hosts = await r.json()
       render(hosts)
     }
