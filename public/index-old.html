@@ -1,0 +1,1117 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Edge Dock Nav + Auto-hide (per-edge, compact, dark)</title>
+  <script async>navigator.serviceWorker.register('sw.js')</script>
+  <style>
+    :root {
+      /* --- Dark theme (固定) --- */
+      --bg: #070b12;
+      --panel: rgba(255, 255, 255, .05);
+      --panel2: rgba(255, 255, 255, .08);
+      --line: rgba(255, 255, 255, .12);
+      --text: rgba(255, 255, 255, .92);
+      --muted: rgba(255, 255, 255, .62);
+      --accent: #8be9fd;
+      --shadow: 0 10px 26px rgba(0, 0, 0, .38);
+
+      /* --- Compact sizes（メイン領域を最大化） --- */
+      --header-full: 44px;
+      --footer-full: 40px;
+      --sidebar-full: 60px;
+
+      /* auto-hide時の“逃げ”量（さらに薄く） */
+      --header-peek: 4px;
+      --footer-peek: 4px;
+      --sidebar-peek: 6px;
+
+      /* per-edge sizing (左右別) */
+      --header-h: var(--header-full);
+      --footer-h: var(--footer-full);
+      --sidebar-left-w: var(--sidebar-full);
+      --sidebar-right-w: var(--sidebar-full);
+
+      --radius: 0px;
+      --icon-size: 20px;
+      --circle: 40px;
+
+      --hotzone: 8px;
+      /* 端ホバー検知 */
+      --anim: 160ms;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(900px 600px at 15% 10%, rgba(139, 233, 253, .14), transparent 55%),
+        radial-gradient(900px 700px at 90% 0%, rgba(189, 147, 249, .12), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+      overflow: hidden;
+    }
+
+    /* ===== Auto-hide sizing control (per-edge) ===== */
+    body.autoHide {
+      --header-h: var(--header-peek);
+      --footer-h: var(--footer-peek);
+      --sidebar-left-w: var(--sidebar-peek);
+      --sidebar-right-w: var(--sidebar-peek);
+    }
+
+    body.autoHide.showTop {
+      --header-h: var(--header-full);
+    }
+
+    body.autoHide.showBottom {
+      --footer-h: var(--footer-full);
+    }
+
+    body.autoHide.showLeft {
+      --sidebar-left-w: var(--sidebar-full);
+    }
+
+    body.autoHide.showRight {
+      --sidebar-right-w: var(--sidebar-full);
+    }
+
+    /* ===== Layout: edge-to-edge ===== */
+    .app {
+      height: 100vh;
+      width: 100vw;
+      display: grid;
+      grid-template-columns: var(--sidebar-left-w) 1fr var(--sidebar-right-w);
+      grid-template-rows: var(--header-h) 1fr var(--footer-h);
+      gap: 0;
+      padding: 0;
+      transition:
+        grid-template-rows var(--anim) ease,
+        grid-template-columns var(--anim) ease;
+    }
+
+    header,
+    footer,
+    aside {
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      overflow: hidden;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* outer borders removed to avoid double lines */
+    header {
+      border-top: 0;
+      border-left: 0;
+      border-right: 0;
+    }
+
+    footer {
+      border-bottom: 0;
+      border-left: 0;
+      border-right: 0;
+    }
+
+    aside.left {
+      border-left: 0;
+      border-top: 0;
+      border-bottom: 0;
+    }
+
+    aside.right {
+      border-right: 0;
+      border-top: 0;
+      border-bottom: 0;
+    }
+
+    header {
+      grid-column: 1 / 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    footer {
+      grid-column: 1 / 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    aside.left {
+      grid-row: 2;
+      grid-column: 1;
+    }
+
+    aside.right {
+      grid-row: 2;
+      grid-column: 3;
+    }
+
+    main {
+      grid-row: 2;
+      grid-column: 2;
+      min-height: 0;
+      overflow: hidden;
+      background: rgba(255, 255, 255, .03);
+      position: relative;
+      z-index: 1;
+    }
+
+    .view-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .view-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #0b0f17;
+      display: none;
+    }
+
+    .view-frame.is-active {
+      display: block;
+    }
+
+    /* ===== Nav buttons ===== */
+    .rownav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .rownav .group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    #topNav {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .navbtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 8px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease;
+      outline: none;
+      min-height: 30px;
+      position: relative;
+    }
+
+    .navbtn:hover {
+      background: rgba(255, 255, 255, .08);
+      border-color: rgba(255, 255, 255, .10);
+    }
+
+    .navbtn:active {
+      transform: translateY(1px);
+    }
+
+    .navbtn[aria-current="page"] {
+      background: rgba(139, 233, 253, .14);
+      border-color: rgba(139, 233, 253, .28);
+    }
+
+    .navbtn .label {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 28vw;
+    }
+
+    .navbtn .ic {
+      width: var(--icon-size);
+      height: var(--icon-size);
+      display: inline-block;
+    }
+
+    .navbtn.icon-only {
+      padding: 6px;
+      width: 34px;
+      justify-content: center;
+    }
+
+    /* Side bars */
+    .side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 4px;
+      gap: 8px;
+      height: 100%;
+      overflow: auto;
+    }
+
+    .side-separator {
+      width: 70%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .22), transparent);
+      margin: 4px 0;
+      flex: 0 0 auto;
+    }
+
+    .circlebtn {
+      width: var(--circle);
+      height: var(--circle);
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, .07);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      outline: none;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+      position: relative;
+    }
+
+    .circlebtn:hover {
+      background: rgba(255, 255, 255, .11);
+      border-color: rgba(255, 255, 255, .12);
+    }
+
+    .circlebtn:active {
+      transform: translateY(1px);
+    }
+
+    .circlebtn[aria-current="page"] {
+      background: rgba(139, 233, 253, .14);
+      border-color: rgba(139, 233, 253, .28);
+      box-shadow: 0 0 0 4px rgba(139, 233, 253, .10);
+    }
+
+    .circlebtn .ic {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* === Badge for right sidebar icon (e.g., MDN) === */
+    .circlebtn {
+      position: relative;
+    }
+
+    .badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.2px;
+
+      color: rgba(255, 255, 255, .96);
+      background: rgba(255, 70, 90, .95);
+      border: 1px solid rgba(255, 255, 255, .22);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, .35);
+
+      transform: translate(15%, -15%);
+    }
+
+    .badge.is-hidden {
+      display: none;
+    }
+
+    .badge.is-compact {
+      font-size: 10px;
+      min-width: 18px;
+    }
+
+    .closebtn {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .25);
+      background: rgba(0, 0, 0, .6);
+      color: rgba(255, 255, 255, .9);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .closebtn:hover {
+      background: rgba(255, 255, 255, .1);
+    }
+
+    .navbtn.has-frame .closebtn,
+    .circlebtn.has-frame .closebtn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+
+    .spacer {
+      flex: 1;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 45vw;
+    }
+
+    #status.hint {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 14em;
+    }
+
+    /* ===== Auto-hide visual hiding ===== */
+    body.autoHide:not(.showTop) header {
+      padding: 0;
+    }
+
+    body.autoHide:not(.showBottom) footer {
+      padding: 0;
+    }
+
+    body.autoHide:not(.showTop) header .rownav,
+    body.autoHide:not(.showTop) header .hint {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--anim) ease;
+    }
+
+    body.autoHide.showTop header .rownav,
+    body.autoHide.showTop header .hint {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    body.autoHide:not(.showBottom) footer .rownav {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--anim) ease;
+    }
+
+    body.autoHide.showBottom footer .rownav {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    body.autoHide:not(.showTop) header #openNew {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--anim) ease;
+    }
+
+    body.autoHide.showTop header #openNew {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    body.autoHide:not(.showLeft) aside.left .side {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--anim) ease;
+    }
+
+    body.autoHide.showLeft aside.left .side {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    body.autoHide:not(.showRight) aside.right .side {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--anim) ease;
+    }
+
+    body.autoHide.showRight aside.right .side {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ===== Pin toggle button (header right) ===== */
+    #pinToggle {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      box-shadow: var(--shadow);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      z-index: 5;
+      margin-left: 6px;
+    }
+
+    #pinToggle:hover {
+      border-color: rgba(255, 255, 255, .22);
+    }
+
+    #pinToggle:active {
+      transform: translateY(1px);
+    }
+
+    #pinToggle svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .pinBadge {
+      position: absolute;
+      right: -6px;
+      bottom: -6px;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(139, 233, 253, .35);
+      border: 1px solid rgba(139, 233, 253, .55);
+      display: none;
+    }
+
+    body:not(.autoHide) .pinBadge {
+      display: block;
+    }
+
+    /* autoHideで上が閉じていても、ピンは常に触れるように右上にフロート */
+    body.autoHide:not(.showTop) header #pinToggle {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 1000;
+    }
+
+    body.autoHide.showTop header #pinToggle {
+      position: relative;
+      top: auto;
+      right: auto;
+    }
+
+    /* Scrollbar */
+    .side::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .side::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .16);
+      border-radius: 10px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+
+    /* ===== Hotzones ===== */
+    .hotzone {
+      position: fixed;
+      z-index: 999;
+      background: transparent;
+      pointer-events: auto;
+    }
+
+    .hotzone.top {
+      left: 0;
+      right: 0;
+      top: 0;
+      height: var(--hotzone);
+    }
+
+    .hotzone.bottom {
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--hotzone);
+    }
+
+    .hotzone.left {
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: var(--hotzone);
+    }
+
+    .hotzone.right {
+      top: 0;
+      bottom: 0;
+      right: 0;
+      width: var(--hotzone);
+    }
+
+    /* responsive */
+    @media (max-width: 860px) {
+      :root {
+        --sidebar-full: 54px;
+        --circle: 38px;
+      }
+
+      .navbtn .label {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Hotzones: 画面端に寄せると、その辺だけが出ます（autoHide時） -->
+  <div class="hotzone top" data-zone="Top" aria-hidden="true"></div>
+  <div class="hotzone bottom" data-zone="Bottom" aria-hidden="true"></div>
+  <div class="hotzone left" data-zone="Left" aria-hidden="true"></div>
+  <div class="hotzone right" data-zone="Right" aria-hidden="true"></div>
+
+  <div class="app" id="app">
+    <header id="header">
+      <div class="group" id="topNav"></div>
+      <div class="spacer"></div>
+      <div class="hint" id="status">Ready</div>
+      <button class="navbtn icon-only" id="openNew" type="button" title="現在のURLを新しいタブで開く" aria-label="現在のURLを新しいタブで開く">
+        <span class="ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 3h7v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <path d="M21 3 10 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <path d="M20 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" />
+          </svg>
+        </span>
+      </button>
+
+      <!-- auto-hide ON/OFF : ヘッダー右端 -->
+      <button id="pinToggle" type="button" title="ピン固定 / 自動的に逃げる（auto-hide）切替">
+        <span class="pinBadge" aria-hidden="true"></span>
+        <span id="pinIcon" aria-hidden="true"></span>
+      </button>
+    </header>
+
+    <aside class="left" id="leftBar">
+      <div class="side" id="leftNav" aria-label="左ツールバー"></div>
+    </aside>
+
+    <main>
+      <div id="viewContainer" class="view-container" aria-label="メインコンテンツ"></div>
+    </main>
+
+    <aside class="right" id="rightBar">
+      <div class="side" id="rightNav" aria-label="右ツールバー"></div>
+    </aside>
+
+    <footer id="footer">
+      <div class="rownav">
+        <div class="group" id="bottomNav"></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="rownav">
+        <div class="group" id="bottomRight"></div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    function svg(name) {
+      // Tabler Icons (https://tabler.io/icons)
+      const icons = {
+        home: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12l-2 2l9 7l9-7l-2-2m-7-9v18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 21V9h6v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        docs: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8 4v16" stroke="currentColor" stroke-width="1.5"/><path d="M16 4v16" stroke="currentColor" stroke-width="1.5"/></svg>`,
+        search: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/><line x1="21" y1="21" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+        settings: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09c-.66 0-1.26.38-1.51 1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        info: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="16" x2="12" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="8" r="1" fill="currentColor"/></svg>`,
+        star: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 17.75L6.16 21l1.12-6.54L2 9.75l6.58-.96L12 3l3.42 5.79 6.58.96-4.76 4.71L17.84 21z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        mail: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><polyline points="3 7 12 13 21 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        back: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="15 18 9 12 15 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        forward: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        pin: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 3v4a4 4 0 0 1-4 4H8l-5 5 5 5h4a4 4 0 0 1 4 4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        unpin: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16 3v4a4 4 0 0 1-4 4H8l-5 5 5 5h4a4 4 0 0 1 4 4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+      };
+      return icons[name] || icons.info;
+    }
+
+    // --- Navigation definitions (edit here) ---
+    const NAV = {
+      top: [
+        { id: 'home', label: 'ホーム', icon: 'home', url: 'data:text/html;charset=utf-8,' + encodeURIComponent(`<body style="margin:0;background:#0b0f17;color:#e6edf3;font-family:system-ui;"><div style="padding:18px;"><h1>Home</h1><p>コンパクト＆ダークテーマにしました。auto-hide時も、ホバーした辺だけ展開します。</p></div></body>`) },
+        { id: 'docs', label: 'ドキュメント', icon: 'docs', url: 'https://example.com' },
+        { id: 'search', label: '検索', icon: 'search', url: 'https://www.bing.com' },
+      ],
+      bottom: [
+        { id: 'info', label: 'ホスト管理', icon: 'info', url: '/hosts.html' },
+      ],
+      left: [
+        { id: 'fav', title: 'SD-WAN Manager', icon: 'star', url: 'https://manager.sdwan.danmaid.com/' },
+        { id: 'mail', title: 'Catalyst Center', icon: 'mail', url: 'https://catc.danmaid:8443' },
+        { id: 'zabbix', title: 'Zabbix', icon: 'docs', url: '/zabbix/' },
+        { id: 'ssh', title: 'SSH', icon: 'forward', url: '/v1/ssh/' },
+        { id: 'set', title: 'deploy', icon: 'settings', url: '/v1/deploy/' },
+        { id: 'labo', title: 'ラボ', icon: 'info', url: 'https://cml.danmaid.com/lab/2b13e418-8c52-470f-b31f-b29261e8e094' },
+      ],
+      leftExtra: [
+        { id: 'sample1', title: 'ダッシュボード', icon: 'home', url: '/dashboard.html' },
+        { id: 'sample2', title: '時系列', icon: 'docs', url: '/timeseries.html' },
+        { id: 'incidents', title: '障害情報', icon: 'alert-triangle', url: '/incidents.html' },
+        { id: 'sample3', title: 'サンプルC', icon: 'search', url: '/honeycomb.html' },
+      ],
+      bottomRight: [
+        {
+          id: 'settings',
+          label: '設定',
+          icon: 'info',
+          url: '/v1/proxy/',
+          badgeStatusUrl: '/.well-known/proxy-status'
+        },
+      ],
+      right: [
+        { id: 'orchestrator', title: 'オーケストレータ', icon: 'info', url: '/v1/orchestrator/' },
+        { id: 'mdn', title: 'MDN', icon: 'docs', url: '/v1/webhooks/sdwan/' },
+        { id: 'info2', title: '情報', icon: 'info', url: 'data:text/html;charset=utf-8,' + encodeURIComponent(`<body style="margin:0;background:#0b0f17;color:#e6edf3;font-family:system-ui;"><div style="padding:18px;"><h2>Info</h2><p>右側もホバーしたときだけ展開します。</p></div></body>`) },
+      ]
+    };
+
+    const viewContainer = document.getElementById('viewContainer');
+    const status = document.getElementById('status');
+    const openNew = document.getElementById('openNew');
+    const pinToggle = document.getElementById('pinToggle');
+    const pinIcon = document.getElementById('pinIcon');
+
+    const frames = new Map();
+    const navIndex = new Map();
+    let activeId = null;
+
+    // ----- Persisted setting -----
+    const KEY = 'edgeDock.autoHide';
+    function setAutoHide(on) {
+      document.body.classList.toggle('autoHide', on);
+      localStorage.setItem(KEY, on ? '1' : '0');
+      pinIcon.innerHTML = on ? svg('unpin') : svg('pin');
+      pinToggle.title = on ? 'auto-hide：ON（端に寄せると出ます） / クリックでピン固定' : 'ピン固定：ON（常時表示） / クリックでauto-hide';
+    }
+    setAutoHide(localStorage.getItem(KEY) === '1');
+
+    function setStatus(text) { status.textContent = text; }
+    function setActive(id) {
+      document.querySelectorAll('[data-nav-id]').forEach(el => {
+        el.removeAttribute('aria-current');
+        if (id && el.dataset.navId === id) el.setAttribute('aria-current', 'page');
+      });
+    }
+
+    function registerNav(items) {
+      items.forEach(item => navIndex.set(item.id, item));
+    }
+
+    function getFrameUrl(frame) {
+      try { return frame.contentWindow.location.href; } catch (e) { return frame.src; }
+    }
+
+    function showFrame(id) {
+      frames.forEach((frame, key) => frame.classList.toggle('is-active', key === id));
+      activeId = id;
+      setActive(id);
+    }
+
+    function setFrameState(id, hasFrame) {
+      document.querySelectorAll(`[data-nav-id="${id}"]`).forEach(el => {
+        el.classList.toggle('has-frame', hasFrame);
+      });
+    }
+
+    function ensureFrame(item) {
+      let frame = frames.get(item.id);
+      if (!frame) {
+        frame = document.createElement('iframe');
+        frame.className = 'view-frame';
+        frame.title = item.label || item.title || item.id;
+        frame.dataset.frameId = item.id;
+        frame.src = item.url;
+        frame.addEventListener('load', () => {
+          if (activeId === item.id) setStatus(getFrameUrl(frame));
+        });
+        frames.set(item.id, frame);
+        viewContainer.appendChild(frame);
+        setFrameState(item.id, true);
+      }
+      showFrame(item.id);
+      setStatus(item.label || item.title || item.url);
+    }
+
+    function closeFrame(id) {
+      const frame = frames.get(id);
+      if (!frame) return;
+      frame.remove();
+      frames.delete(id);
+      setFrameState(id, false);
+
+      if (activeId === id) {
+        const nextId = frames.keys().next().value;
+        if (nextId) {
+          showFrame(nextId);
+          const nextItem = navIndex.get(nextId);
+          if (nextItem) setStatus(nextItem.label || nextItem.title || nextItem.url);
+        } else {
+          activeId = null;
+          setActive(null);
+          setStatus('Ready');
+        }
+      }
+    }
+
+    function navigate(item) {
+      if (item.url) {
+        ensureFrame(item);
+      }
+    }
+
+    // --- Footer専用: iframe永続化しないnavigate ---
+    function navigateBottom(item) {
+      if (item.url) {
+        // iframeを永続化せず、一時的に表示（既存のiframeを使い回す）
+        let frame = frames.get('__footer_temp__');
+        if (!frame) {
+          frame = document.createElement('iframe');
+          frame.className = 'view-frame';
+          frame.title = item.label || item.title || item.id;
+          frame.dataset.frameId = '__footer_temp__';
+          viewContainer.appendChild(frame);
+          frames.set('__footer_temp__', frame);
+        }
+        // 他のiframeは非表示
+        frames.forEach((f, key) => f.classList.toggle('is-active', key === '__footer_temp__'));
+        activeId = '__footer_temp__';
+        setActive(null); // footerボタンは選択状態にしない
+        frame.src = item.url;
+        setStatus(item.label || item.title || item.url);
+      }
+    }
+
+    function makeTopBottomButton(item, isFooter = false) {
+      const btn = document.createElement('button');
+      btn.className = 'navbtn';
+      btn.type = 'button';
+      btn.dataset.navId = item.id;
+      btn.title = item.label;
+      btn.innerHTML = `<span class="ic" aria-hidden="true">${svg(item.icon)}</span><span class="label"></span>`;
+      btn.querySelector('.label').textContent = item.label;
+
+      // --- バッジ付き設定ボタン ---
+      if (item.badgeStatusUrl) {
+        const badge = document.createElement('span');
+        badge.className = 'badge is-hidden';
+        badge.id = 'settingsBadge';
+        badge.textContent = '!';
+        badge.setAttribute('aria-label', 'プロキシ状態');
+        btn.appendChild(badge);
+
+        function updateSettingsBadge() {
+          fetch(item.badgeStatusUrl, { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : Promise.reject(r))
+            .then(data => {
+              if (data && data.status === 'ok') {
+                badge.classList.add('is-hidden');
+              } else {
+                badge.classList.remove('is-hidden');
+                badge.textContent = '!';
+                badge.title = data && data.reason ? data.reason : 'プロキシ状態に警告';
+              }
+            })
+            .catch(e => {
+              badge.classList.remove('is-hidden');
+              badge.textContent = '!';
+              badge.title = 'プロキシ状態取得失敗';
+            });
+        }
+        updateSettingsBadge();
+      }
+
+      if (item.url && !isFooter) {
+        const close = document.createElement('button');
+        close.className = 'closebtn';
+        close.type = 'button';
+        close.title = '閉じる';
+        close.setAttribute('aria-label', '閉じる');
+        close.textContent = 'x';
+        close.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeFrame(item.id);
+        });
+        btn.appendChild(close);
+      }
+      if (isFooter) {
+        btn.addEventListener('click', () => navigateBottom(item));
+        btn.addEventListener('dblclick', () => navigateBottom(item));
+      } else {
+        btn.addEventListener('click', () => navigate(item));
+        btn.addEventListener('dblclick', () => {
+          if (!item.url) return;
+          const frame = frames.get(item.id);
+          if (frame) {
+            frame.src = item.url;
+            showFrame(item.id);
+            setStatus(item.label || item.title || item.url);
+          } else {
+            ensureFrame(item);
+          }
+        });
+      }
+      return btn;
+    }
+
+    function makeCircleButton(item) {
+      const btn = document.createElement('button');
+      btn.className = 'circlebtn';
+      btn.type = 'button';
+      btn.dataset.navId = item.id;
+      btn.title = item.title;
+      btn.innerHTML = `<span class="ic" aria-hidden="true">${svg(item.icon)}</span>`;
+
+      // ★ MDN用バッジを追加
+      if (item.id === 'mdn') {
+        const badge = document.createElement('span');
+        badge.className = 'badge is-hidden';
+        badge.id = 'mdnBadge';
+        badge.textContent = '0';
+        badge.setAttribute('aria-label', '未処理イベント数');
+        btn.appendChild(badge);
+      }
+
+      if (item.url) {
+        const close = document.createElement('button');
+        close.className = 'closebtn';
+        close.type = 'button';
+        close.title = '閉じる';
+        close.setAttribute('aria-label', '閉じる');
+        close.textContent = 'x';
+        close.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeFrame(item.id);
+        });
+        btn.appendChild(close);
+      }
+
+      btn.addEventListener('click', () => navigate(item));
+      btn.addEventListener('dblclick', () => {
+        if (!item.url) return;
+        const frame = frames.get(item.id);
+        if (frame) {
+          frame.src = item.url;
+          showFrame(item.id);
+          setStatus(item.label || item.title || item.url);
+        } else {
+          ensureFrame(item);
+        }
+      });
+      return btn;
+    }
+
+    function render() {
+      const top = document.getElementById('topNav');
+      const bottom = document.getElementById('bottomNav');
+      const bottomRight = document.getElementById('bottomRight');
+      const left = document.getElementById('leftNav');
+      const right = document.getElementById('rightNav');
+
+      registerNav(NAV.top);
+      registerNav(NAV.bottom);
+      registerNav(NAV.leftExtra);
+      registerNav(NAV.left);
+      registerNav(NAV.bottomRight);
+      registerNav(NAV.right);
+
+      NAV.top.forEach(i => top.appendChild(makeTopBottomButton(i)));
+      NAV.bottom.forEach(i => bottom.appendChild(makeTopBottomButton(i, true)));
+      NAV.leftExtra.forEach(i => left.appendChild(makeCircleButton(i)));
+      const separator = document.createElement('div');
+      separator.className = 'side-separator';
+      separator.setAttribute('aria-hidden', 'true');
+      left.appendChild(separator);
+      NAV.left.forEach(i => left.appendChild(makeCircleButton(i)));
+      NAV.bottomRight.forEach(i => bottomRight.appendChild(makeTopBottomButton(i, true)));
+      NAV.right.forEach(i => right.appendChild(makeCircleButton(i)));
+
+      navigate(NAV.top[0]);
+    }
+
+    openNew.addEventListener('click', () => {
+      const frame = activeId ? frames.get(activeId) : null;
+      const url = frame ? getFrameUrl(frame) : '';
+      if (!url || url === 'about:blank') return;
+      window.open(url, '_blank', 'noopener');
+    });
+
+    pinToggle.addEventListener('click', () => {
+      const on = document.body.classList.contains('autoHide');
+      setAutoHide(!on);
+      if (!document.body.classList.contains('autoHide')) {
+        document.body.classList.remove('showTop', 'showBottom', 'showLeft', 'showRight');
+      }
+    });
+
+    // ----- Auto-hide reveal logic (per-edge, independent) -----
+    const hoverState = { Top: false, Bottom: false, Left: false, Right: false };
+    const hideTimers = { Top: null, Bottom: null, Left: null, Right: null };
+
+    function show(zone) {
+      if (!document.body.classList.contains('autoHide')) return;
+      document.body.classList.add('show' + zone);
+      hoverState[zone] = true;
+      if (hideTimers[zone]) { clearTimeout(hideTimers[zone]); hideTimers[zone] = null; }
+    }
+
+    function scheduleHide(zone) {
+      if (!document.body.classList.contains('autoHide')) return;
+      hoverState[zone] = false;
+      if (hideTimers[zone]) clearTimeout(hideTimers[zone]);
+      hideTimers[zone] = setTimeout(() => {
+        if (!hoverState[zone]) document.body.classList.remove('show' + zone);
+      }, 240);
+    }
+
+    // Hotzones
+    document.querySelectorAll('.hotzone').forEach(z => {
+      const zone = z.dataset.zone;
+      z.addEventListener('mouseenter', () => show(zone));
+      z.addEventListener('mouseleave', () => scheduleHide(zone));
+    });
+
+    // Panels themselves
+    const panelMap = {
+      Top: document.getElementById('header'),
+      Bottom: document.getElementById('footer'),
+      Left: document.getElementById('leftBar'),
+      Right: document.getElementById('rightBar'),
+    };
+    Object.entries(panelMap).forEach(([zone, el]) => {
+      el.addEventListener('mouseenter', () => show(zone));
+      el.addEventListener('mouseleave', () => scheduleHide(zone));
+    });
+
+    // Keyboard shortcuts: Alt+← / Alt+→
+    window.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key === 'ArrowLeft') navigate({ action: 'back' });
+      if (e.altKey && e.key === 'ArrowRight') navigate({ action: 'forward' });
+    });
+
+
+    // === SSE: MDN badge counts (snapshot + alarm) ===
+    let mdnCount = 0;
+    let es = null;
+
+    function updateMdnBadge() {
+      const badge = document.getElementById('mdnBadge');
+      if (!badge) return;
+
+      const text = mdnCount > 99 ? '99+' : String(mdnCount);
+      badge.textContent = text;
+      badge.classList.toggle('is-hidden', mdnCount <= 0);
+      badge.classList.toggle('is-compact', mdnCount >= 10);
+    }
+
+    function connectSSE() {
+      try {
+        es = new EventSource('/v1/webhooks/sdwan/');
+
+        es.onopen = () => {
+          setStatus('SSE connected: /v1/webhooks/sdwan/');
+        };
+
+        // event: snapshot で初期一覧が来る（{ items: [...] }）
+        es.addEventListener('snapshot', (evt) => {
+          try {
+            const data = JSON.parse(evt.data);
+            const items = Array.isArray(data?.items) ? data.items : [];
+            mdnCount = items.length;
+            updateMdnBadge();
+          } catch (e) {
+            console.warn('[SSE] snapshot parse failed', e);
+          }
+        });
+
+        // event: alarm で新規1件
+        es.addEventListener('alarm', (evt) => {
+          mdnCount += 1;
+          updateMdnBadge();
+        });
+
+        // フォールバック（event名なしの場合）
+        es.onmessage = (evt) => {
+          mdnCount += 1;
+          updateMdnBadge();
+        };
+
+        es.onerror = () => {
+          setStatus('SSE error (reconnecting…)');
+        };
+      } catch (e) {
+        setStatus('SSE failed to start');
+      }
+    }
+
+
+
+    render();
+    updateMdnBadge();
+    connectSSE();
+    loadTimeRange();
+    initTimeRangeUI();
+
+    // Listen to time range changes (for embedding in other pages)
+    window.addEventListener('timerangechange', (e) => {
+      console.log('Time range changed:', e.detail);
+    });
+
+
+  </script>
+</body>
+
+</html>

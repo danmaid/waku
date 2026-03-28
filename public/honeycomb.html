@@ -1,283 +1,230 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ハニカム構造サンプル</title>
-    <script src="/sw-register.js" async></script>
-    <style>
-        body {
-            background: #1a1a1a;
-            color: #b6c0e2;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>title</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
 
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(20, 24, 32, 0.92);
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding-top: 32px;
-            color: #e6edf3;
-        }
+    body {
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+    }
 
-        .overlay h2 {
-            margin: 0 0 12px 0;
-        }
+    .cell {
+      position: absolute;
+      width: var(--hex-width);
+      height: var(--hex-height);
+      background: #555;
+      clip-path: url(#hexgrid-mask);
+      transform: translate(0, 0);
+    }
 
-        .overlay label {
-            margin-right: 8px;
-        }
-
-        .overlay select,
-        .overlay button {
-            margin-right: 12px;
-        }
-
-        .overlay .close-btn {
-            position: absolute;
-            top: 18px;
-            right: 24px;
-            background: #44475a;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 12px;
-            font-size: 1em;
-            cursor: pointer;
-        }
-
-        .overlay .preset-list {
-            margin-bottom: 12px;
-        }
-
-        .overlay .status-btns button {
-            margin: 0 4px;
-            padding: 4px 10px;
-            border-radius: 4px;
-            border: none;
-            font-size: 1em;
-            cursor: pointer;
-        }
-
-        .overlay .status-btns .normal {
-            background: #8be9fd;
-            color: #222;
-        }
-
-        .overlay .status-btns .warning {
-            background: #f1fa8c;
-            color: #222;
-        }
-
-        .overlay .status-btns .error {
-            background: #ff5555;
-            color: #fff;
-        }
-
-        .overlay .status-btns .unknown {
-            background: #44475a;
-            color: #fff;
-        }
-    </style>
+    .cell.usable {
+      background: orange;
+    }
+  </style>
 </head>
 
 <body>
-    <div id="honeycomb" style="position:absolute;top:0;left:0;width:100vw;height:100vh;"></div>
-    <div id="overlay" class="overlay" style="display:none;">
-        <button class="close-btn" onclick="hideOverlay()">閉じる</button>
-        <h2>サンプルデータコントロール</h2>
-        <div class="preset-list">
-            <label>プリセット:</label>
-            <select id="presetSelect"></select>
-            <button onclick="applyPreset()">適用</button>
-        </div>
-        <div>
-            <label>拠点番号:</label>
-            <input id="editId" type="text" readonly style="width:80px;">
-            <span class="status-btns">
-                <button class="normal" onclick="setStatus('normal')">正常</button>
-                <button class="warning" onclick="setStatus('warning')">警告</button>
-                <button class="error" onclick="setStatus('error')">異常</button>
-                <button class="unknown" onclick="setStatus('unknown')">不明</button>
-            </span>
-        </div>
-    </div>
-    <button style="position:fixed;top:12px;left:12px;z-index:20;" onclick="showOverlay()">コントロール</button>
-    <script>
-        // 設定
-        const NUM_SITES = 1200;
-        // サンプル拠点番号生成（枝番あり）
-        function makeSiteIds(n) {
-            const ids = [];
-            for (let i = 1; i <= n; i++) {
-                if (i % 100 === 0) ids.push(i + "-A");
-                else if (i % 250 === 0) ids.push(i + "-B");
-                else ids.push(i.toString());
-            }
-            return ids;
-        }
-        // サンプルプリセット
-        const PRESETS = [
-            { name: "全て正常", data: Array(NUM_SITES).fill('normal') },
-            { name: "ランダム異常", data: Array.from({ length: NUM_SITES }, () => ['normal', 'warning', 'error', 'unknown'][Math.floor(Math.random() * 4)]) },
-            { name: "警告多め", data: Array.from({ length: NUM_SITES }, (_, i) => i % 7 === 0 ? 'warning' : 'normal') },
-            { name: "異常多め", data: Array.from({ length: NUM_SITES }, (_, i) => i % 11 === 0 ? 'error' : 'normal') },
-        ];
-        let siteIds = makeSiteIds(NUM_SITES);
-        let siteStatus = [...PRESETS[0].data];
-        let selectedIdx = null;
+  <div id="container" style="position: relative; width: 100%; height: 100%; overflow: hidden;"></div>
+  <svg width="0" height="0" style="position: absolute;">
+    <defs>
+      <clipPath id="hexgrid-mask" clipPathUnits="objectBoundingBox">
+        <polygon points="0.5 0, 1 0.25, 1 0.75, 0.5 1, 0 0.75, 0 0.25" />
+      </clipPath>
+    </defs>
+  </svg>
 
-        // SVG六角形パス生成（pointy-topped, a:一辺の長さ, cx,cy中心）
-        function hexPath(a, cx, cy) {
-            let d = '';
-            for (let i = 0; i < 6; i++) {
-                const angle = Math.PI / 3 * i - Math.PI / 2;
-                const x = cx + a * Math.cos(angle);
-                const y = cy + a * Math.sin(angle);
-                d += (i === 0 ? 'M' : 'L') + x + ',' + y;
-            }
-            d += 'Z';
-            return d;
+  <div id="debug-overlay"></div>
+  <style>
+    #debug-overlay {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 9999;
+
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.4;
+
+      padding: 8px 10px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+  </style>
+
+  <script>
+    const container = document.getElementById('container')
+    const cells = []
+
+    function initElements(n) {
+      const factor =
+        n < 120 ? 1.8 :
+          n < 400 ? 1.6 :
+            n < 1200 ? 1.4 :
+              n < 5000 ? 1.25 :
+                1.15
+      const total = Math.ceil(n * factor)
+
+      for (let i = 0; i < total; i++) {
+        const div = document.createElement('div')
+        div.className = 'cell'
+        container.appendChild(div)
+        cells.push(div)
+      }
+    }
+
+    function updateHexSize(n) {
+      const container = document.getElementById('container')
+      const W = container.clientWidth
+      const H = container.clientHeight
+
+      // ★ 境界ロス吸収用の安全係数
+      const SAFETY = 1.1
+
+      // 六角形1個あたりの「理論面積」
+      const areaPerHex = (W * H) / (n * SAFETY)
+
+      // A = 3√3 / 2 * s^2
+      const s = Math.sqrt(areaPerHex / (3 * Math.sqrt(3) / 2))
+
+      const hexWidth = Math.sqrt(3) * s
+      const hexHeight = 2 * s
+
+      container.style.setProperty('--hex-width', `${hexWidth}px`)
+      container.style.setProperty('--hex-height', `${hexHeight}px`)
+
+      return { s, hexWidth, hexHeight }
+    }
+
+    function layout(n) {
+      const container = document.getElementById('container')
+      const cells = Array.from(container.children)
+
+      const W = container.clientWidth
+      const H = container.clientHeight
+
+      if (cells.length === 0) return
+
+      // CSS変数から六角形サイズを取得
+      const style = getComputedStyle(container)
+      const hexWidth = parseFloat(style.getPropertyValue('--hex-width'))
+      const hexHeight = parseFloat(style.getPropertyValue('--hex-height'))
+
+      const s = hexHeight / 2
+      const dx = hexWidth
+      const dy = 1.5 * s
+
+      const cols = Math.ceil(W / dx) + 2
+      const rows = Math.ceil(cells.length / cols)
+
+      const offsetX = W / 2 - (cols * dx) / 2
+      const offsetY = H / 2 - (rows * dy) / 2
+
+      // usable領域
+      const usableLeft = -hexWidth * 0.6
+      const usableTop = -hexHeight * 0.6
+      const usableRight = W - hexWidth * 0.4
+      const usableBottom = H - hexHeight * 0.4
+
+      cells.forEach(cell => {
+        // 後で全部 false にする前提
+        cell.classList.remove('usable')
+      })
+
+      for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i]
+
+        const row = Math.floor(i / cols)
+        const col = i % cols
+
+        let cx = col * dx
+        let cy = row * dy
+
+        if (row % 2 === 1) {
+          cx += dx / 2
         }
 
-        // ステータス色
-        function statusColor(status) {
-            switch (status) {
-                case 'normal': return '#1ecb4f'; // 信号機グリーン（やや暗め）
-                case 'warning': return '#e6c700'; // 信号機イエロー（やや暗め）
-                case 'error': return '#d32f2f'; // 信号機レッド（やや暗め）
-                case 'unknown': return '#162447'; // 深い青系
-                default: return '#162447';
-            }
+        cx += offsetX
+        cy += offsetY
+
+        // 外接矩形
+        const left = cx - hexWidth / 2
+        const right = cx + hexWidth / 2
+        const top = cy - hexHeight / 2
+        const bottom = cy + hexHeight / 2
+
+        const isUsable =
+          left >= usableLeft &&
+          right <= usableRight &&
+          top >= usableTop &&
+          bottom <= usableBottom
+
+        if (isUsable) {
+          cell.classList.add('usable')
         }
 
-        // HTML/CSSでハニカム構造をflexで並べる
-        function renderGrid() {
-            const container = document.getElementById('honeycomb');
-            container.innerHTML = '';
-            const W = window.innerWidth, H = window.innerHeight;
-            // 六角形の一辺a
-            // 横方向: a*sqrt(3)*cols = W
-            // 縦方向: 1.5a*rows + 0.5a = H
-            let best = { a: 0, cols: 0, rows: 0 };
-            for (let cols = 1; cols <= Math.ceil(Math.sqrt(NUM_SITES) * 2); cols++) {
-                let a = W / (cols * Math.sqrt(3));
-                // 必要な行数を計算（偶数行は1つ減らす）
-                let total = 0, rows = 0;
-                while (total < NUM_SITES) {
-                    total += (rows % 2 === 1 ? cols - 1 : cols);
-                    rows++;
-                }
-                let h = 1.5 * a * rows + 0.5 * a;
-                if (h <= H) {
-                    if (a > best.a) best = { a, cols, rows };
-                }
-            }
-            const { a, cols, rows } = best;
-            // 1行ごとにdiv.rowを作成
-            let idx = 0;
-            for (let row = 0; row < rows && idx < NUM_SITES; row++) {
-                const rowDiv = document.createElement('div');
-                rowDiv.className = 'honeycomb-row';
-                rowDiv.style.display = 'flex';
-                rowDiv.style.flexDirection = 'row';
-                rowDiv.style.marginLeft = (row % 2 === 1 ? (a * Math.sqrt(3) / 2) + 'px' : '0');
-                rowDiv.style.height = (a * 1.5) + 'px';
-                const thisCols = row % 2 === 1 ? cols - 1 : cols;
-                for (let col = 0; col < thisCols && idx < NUM_SITES; col++, idx++) {
-                    const status = siteStatus[idx] || 'unknown';
-                    const tile = document.createElement('div');
-                    tile.className = 'hex-tile';
-                    tile.style.width = (a * Math.sqrt(3)) + 'px';
-                    tile.style.height = (2 * a) + 'px';
-                    tile.style.display = 'flex';
-                    tile.style.alignItems = 'center';
-                    tile.style.justifyContent = 'center';
-                    tile.style.position = 'relative';
-                    tile.style.cursor = 'pointer';
-                    tile.addEventListener('click', () => {
-                        selectedIdx = idx;
-                        showOverlay(siteIds[idx]);
-                    });
-                    // SVG六角形
-                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    svg.setAttribute('width', a * Math.sqrt(3));
-                    svg.setAttribute('height', 2 * a);
-                    svg.setAttribute('viewBox', `0 0 ${a * Math.sqrt(3)} ${2 * a}`);
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', hexPath(a, a * Math.sqrt(3) / 2, a));
-                    path.setAttribute('fill', statusColor(status));
-                    // 選択時は明るい青、通常はダークグレー
-                    path.setAttribute('stroke', selectedIdx === idx ? '#2979ff' : '#222a36');
-                    path.setAttribute('stroke-width', selectedIdx === idx ? 3 : 1.5);
-                    svg.appendChild(path);
-                    // 拠点番号
-                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    text.setAttribute('x', a * Math.sqrt(3) / 2);
-                    text.setAttribute('y', a + 0.32 * a);
-                    text.setAttribute('text-anchor', 'middle');
-                    text.setAttribute('font-size', a * 0.45);
-                    // テキストは通常白、unknownは淡い青
-                    text.setAttribute('fill', status === 'unknown' ? '#6a8caf' : '#f4f4f4');
-                    text.setAttribute('pointer-events', 'none');
-                    text.textContent = siteIds[idx];
-                    svg.appendChild(text);
-                    tile.appendChild(svg);
-                    rowDiv.appendChild(tile);
-                }
-                container.appendChild(rowDiv);
-            }
-        }
-        window.addEventListener('resize', renderGrid);
+        cell.style.transform =
+          `translate(${Math.round(cx)}px, ${Math.round(cy)}px)`
+      }
+      updateDebugOverlay()
+    }
 
-        // オーバーレイUI
-        function showOverlay(id) {
-            document.getElementById('overlay').style.display = '';
-            if (id) {
-                selectedIdx = siteIds.indexOf(id);
-                document.getElementById('editId').value = id;
-            } else if (selectedIdx != null) {
-                document.getElementById('editId').value = siteIds[selectedIdx];
-            }
-            renderGrid();
-        }
-        function hideOverlay() {
-            document.getElementById('overlay').style.display = 'none';
-            renderGrid();
-        }
-        function setStatus(status) {
-            if (selectedIdx != null) {
-                siteStatus[selectedIdx] = status;
-                renderGrid();
-            }
-        }
-        // プリセットUI
-        function applyPreset() {
-            const idx = document.getElementById('presetSelect').selectedIndex;
-            siteStatus = [...PRESETS[idx].data];
-            renderGrid();
-        }
-        // 初期化
-        function init() {
-            const sel = document.getElementById('presetSelect');
-            PRESETS.forEach((p, i) => {
-                const opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = p.name;
-                sel.appendChild(opt);
-            });
-            renderGrid();
-        }
-        window.onload = init;
-    </script>
+    function updateDebugOverlay() {
+      const overlay = document.getElementById('debug-overlay')
+      const container = document.getElementById('container')
+
+      const cells = Array.from(container.children)
+      const total = cells.length
+
+      const usable = cells.filter(c => c.classList.contains('usable')).length
+      const invalid = total - usable
+
+      // 画面外（完全に見えていない）
+      const rect = container.getBoundingClientRect()
+
+      let invisible = 0
+      for (const cell of cells) {
+        const r = cell.getBoundingClientRect()
+        const out =
+          r.right < rect.left ||
+          r.left > rect.right ||
+          r.bottom < rect.top ||
+          r.top > rect.bottom
+
+        if (out) invisible++
+      }
+
+      overlay.textContent = `
+        total      : ${total}
+        usable     : ${usable}
+        invalid    : ${invalid}
+        invisible  : ${invisible}`
+    }
+
+    // ---- 実行 ----
+    const usableCount = 1200
+
+    initElements(usableCount)
+    function relayout(n) {
+      updateHexSize(n)
+      layout(n)
+    }
+
+    relayout(usableCount)
+
+    window.addEventListener('resize', () => {
+      relayout(usableCount)
+    })
+  </script>
 </body>
 
 </html>
