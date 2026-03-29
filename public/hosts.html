@@ -21,7 +21,6 @@
         const tr = document.createElement('tr')
         tr.innerHTML = `
           <td>${h.host ?? ''}</td>
-          <td>${h.name ?? ''}</td>
           <td>${h.critical ?? ''}</td>
           <td>${h.zabbix ?? ''}</td>
         `
@@ -102,7 +101,6 @@
     <thead>
       <tr>
         <th>ホスト名</th>
-        <th>IPアドレス</th>
         <th style="background-color: yellow; color: black;">重要
           <a href="/hands/critical.html" target="_blank" style="color: inherit; text-decoration: none;">(一覧)</a>
         </th>

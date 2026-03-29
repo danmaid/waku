@@ -65,7 +65,7 @@ async function getSites() {
   const criticals = await r.json()
   for (const s of criticals) {
     const site = sites.get(s.host) || {}
-    sites.set(s.host, { ...site, critical: true })
+    sites.set(s.host, { ...site, ...s, critical: true })
   }
   return Array.from(sites.entries()).map(([host, data]) => ({ ...data, host }))
 }
