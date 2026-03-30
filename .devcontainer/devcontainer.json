@@ -1,27 +1,14 @@
 {
-	"name": "Go DevContainer",
-	"build": {
-		"dockerfile": "Dockerfile"
+	"image": "registry.access.redhat.com/ubi9/httpd-24",
+	"overrideCommand": true,
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2": {},
+		"ghcr.io/devcontainers/features/git:1": {}
 	},
-	   "runArgs": [
-		   "--init",
-		"--privileged",
-		"--add-host=host.docker.internal:host-gateway"
-	   ],
 	"mounts": [
-		"source=${localWorkspaceFolder}/public,target=/workspaces/waku/public,type=bind",
-		"source=${localWorkspaceFolder}/config,target=/workspaces/waku/config,type=bind",
-		// docker.sock のマウントはDinDでは不要
+		"source=${localWorkspaceFolder},target=/workspace,type=bind",
+		"source=${localWorkspaceFolder}/public,target=/var/www/html,type=bind"
 	],
-	"features": {},
-	"postCreateCommand": "/usr/local/bin/start-dind.sh && go mod download && go build -o bin/dynamic-proxy main.go",
-	"postStartCommand": "sudo docker compose up -d",
-	"customizations": {
-		"vscode": {
-			"settings": {},
-			"extensions": [
-				"golang.Go"
-			]
-		}
-	}
+	"postCreateCommand": "bash /workspace/.devcontainer/dev-prestart.sh",
+	"postStartCommand": "httpd -DFOREGROUND"
 }

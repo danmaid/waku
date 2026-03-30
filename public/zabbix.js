@@ -1,3 +1,5 @@
+const BASE_URL = 'http://[2400:4052:2962:5e00:5054:ff:fe8c:e2b2]/zabbix'
+
 /** @type {() => Promise<{eventid: string}[]>} */
 export async function getProblems() {
   const d = await callZabbixApi('problem.get', { output: 'extend' })
@@ -23,7 +25,7 @@ export async function getHosts() {
 
 /** @type {(method: string, params?: object) => Promise<any>} */
 async function callZabbixApi(method, params = {}) {
-  const r = await fetch('http://[2400:4052:2962:5e00:5054:ff:fe8c:e2b2]/zabbix/api_jsonrpc.php', {
+  const r = await fetch(`${BASE_URL}/api_jsonrpc.php`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
