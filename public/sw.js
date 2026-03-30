@@ -1,5 +1,7 @@
 /// <reference lib="webworker" />
 import * as zabbixApi from './zabbix.js'
+import * as sdwanApi from './sdwan.js'
+import * as catcApi from './catc.js'
 
 /** @type {ServiceWorkerGlobalScope} */
 const self = globalThis
@@ -33,19 +35,32 @@ self.addEventListener('fetch', async (/** @type {FetchEvent} */ ev) => {
 
 // ホスト一覧
 async function getHosts() {
-  const hosts = await zabbixApi.getHosts()
-  for (const h of hosts) h.zabbix = true
+  const hosts = new Map()
+  await Promise.all([
+    zabbixApi.getHosts().then(hs => hs.forEach(h => {
+      const host = hosts.get(h.host) || { hostname: h.host }
+      hosts.set(h.host, { ...host, zabbix: h })
+    })),
+    sdwanApi.getDevices().then(devices => devices.forEach(d => {
+      const h = hosts.get(d['host-name']) || { hostname: d['host-name'] }
+      hosts.set(d['host-name'], { ...h, sdwan: d })
+    })),
+    catcApi.getDevices().then(devices => devices.forEach(d => {
+      const h = hosts.get(d.hostname) || { hostname: d.hostname }
+      hosts.set(d.hostname, { ...h, catc: d })
+    }))
+  ])
 
   // join ciritcal sites
   const r = await fetch('/hands/critical.json')
   /** @type {{}[]} */
   const criticals = await r.json()
   for (const s of criticals) {
-    for (const h of hosts.filter(h => h.host.startsWith(s.host))) {
+    for (const h of Array.from(hosts.values()).filter(h => h.hostname.startsWith(s.host))) {
       h.critical = true
     }
   }
-  return hosts
+  return Array.from(hosts.values())
 }
 
 // サイト一覧

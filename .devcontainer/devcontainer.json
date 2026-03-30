@@ -7,8 +7,9 @@
 	},
 	"mounts": [
 		"source=${localWorkspaceFolder},target=/workspace,type=bind",
-		"source=${localWorkspaceFolder}/public,target=/var/www/html,type=bind"
+		"source=${localWorkspaceFolder}/public,target=/var/www/html,type=bind",
+		"source=${localWorkspaceFolder}/config/httpd/dev.conf,target=/etc/httpd/conf.d/dev.conf,type=bind"
 	],
 	"postCreateCommand": "bash /workspace/.devcontainer/dev-prestart.sh",
-	"postStartCommand": "httpd -DFOREGROUND"
+	"postStartCommand": "httpd"
 }

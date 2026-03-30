@@ -1,4 +1,5 @@
-const BASE_URL = 'http://[2400:4052:2962:5e00:5054:ff:fe8c:e2b2]/zabbix'
+const BASE_URL = '/zabbix'
+const auth = 'Bearer 7babc36130c77e3c4e20e3fd97e57d93c58c4c298311449449235106ca40840e'
 
 /** @type {() => Promise<{eventid: string}[]>} */
 export async function getProblems() {
@@ -16,9 +17,7 @@ export async function getEvents(options = {}) {
 
 /** @type {() => Promise<{hostid: string, host: string, name: string}[]>} */
 export async function getHosts() {
-  const d = await callZabbixApi('host.get', {
-    output: ['hostid', 'host', 'name']
-  })
+  const d = await callZabbixApi('host.get', { output: 'extend' })
   if (!Array.isArray(d)) throw new Error('Unexpected Zabbix API response for host.get')
   return d
 }
@@ -29,7 +28,7 @@ async function callZabbixApi(method, params = {}) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer 7babc36130c77e3c4e20e3fd97e57d93c58c4c298311449449235106ca40840e'
+      'Authorization': auth
     },
     body: JSON.stringify({ jsonrpc: '2.0', method, params, id: Date.now() })
   })
